@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>ServiceNow · Workplace Decision Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    /* ── DESIGN TOKENS ── */
+    :root {
+      --bg-primary:   #0B0F14;
+      --bg-secondary: #11161C;
+      --bg-tertiary:  #161B22;
+      --bg-elevated:  #1C2330;
+
+      --text-primary:   rgba(255,255,255,0.92);
+      --text-secondary: rgba(255,255,255,0.65);
+      --text-muted:     rgba(255,255,255,0.40);
+
+      --border:        rgba(255,255,255,0.08);
+      --border-subtle: rgba(255,255,255,0.05);
+
+      --green:  #00C951;
+      --red:    #FF4D4D;
+      --amber:  #F5A623;
+      --blue:   #4DA6FF;
+
+      --green-bg:  rgba(0,201,81,0.08);
+      --green-bdr: rgba(0,201,81,0.20);
+      --red-bg:    rgba(255,77,77,0.08);
+      --red-bdr:   rgba(255,77,77,0.22);
+      --amber-bg:  rgba(245,166,35,0.08);
+      --amber-bdr: rgba(245,166,35,0.22);
+      --blue-bg:   rgba(77,166,255,0.08);
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+    }
+
+    * { box-sizing:border-box; margin:0; padding:0; }
+    html,body { width:100%; height:100%; overflow:hidden; background:var(--bg-primary); color:var(--text-primary); }
+    body { font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+
+    /* ── ATMOSPHERE ── */
+    #atmos { position:fixed; inset:0; z-index:0; opacity:0.55; }
+    #grade { position:fixed; inset:0; z-index:1; pointer-events:none; transition:background 1200ms ease; }
+    #fogw  { position:fixed; inset:0; z-index:2; pointer-events:none; mix-blend-mode:screen; transition:background 800ms ease; }
+    /* dark overlay to push weather behind UI */
+    #darken { position:fixed; inset:0; z-index:3; pointer-events:none; background:linear-gradient(180deg,rgba(11,15,20,0.7) 0%,rgba(11,15,20,0.45) 50%,rgba(11,15,20,0.72) 100%); }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      position:fixed; top:0; left:0; right:0; z-index:30; height:56px;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 24px;
+      background:rgba(11,15,20,0.85);
+      border-bottom:1px solid var(--border);
+      backdrop-filter:blur(12px);
+    }
+    .brand { display:flex; align-items:center; gap:10px; }
+    .logo-mark { display:none; }
+    .brand-text {
+      font-size:20px; font-weight:700; color:#fff;
+      letter-spacing:-0.03em; line-height:1;
+      font-family:'Inter',system-ui,sans-serif;
+    }
+    .brand-text span { color:var(--green); }
+    .brand-divider { width:1px; height:16px; background:var(--border); }
+    .brand-sub { font-size:11px; font-weight:500; color:var(--text-muted); letter-spacing:0.06em; text-transform:uppercase; }
+
+    .top-right { display:flex; align-items:center; gap:12px; }
+    .live-pill {
+      display:flex; align-items:center; gap:6px;
+      padding:5px 11px; border-radius:999px;
+      border:1px solid var(--border); background:var(--bg-secondary);
+      font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted);
+    }
+    .live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); }
+    #clock { font-size:12px; font-weight:500; color:var(--text-muted); font-variant-numeric:tabular-nums; letter-spacing:0.04em; }
+
+    /* ── LAYOUT ── */
+    .app {
+      position:relative; z-index:10; height:100vh;
+      padding:68px 16px 14px;
+      display:grid;
+      grid-template-columns: 268px 1fr 352px;
+      gap:10px;
+    }
+    .col { min-height:0; display:flex; flex-direction:column; gap:10px; overflow:hidden; }
+
+    /* ── CARD BASE ── */
+    .card {
+      background:rgba(17,22,28,0.82);
+      border:1px solid var(--border);
+      border-radius:var(--radius-lg);
+      overflow:hidden;
+      backdrop-filter:blur(8px);
+    }
+    .card-header {
+      padding:14px 16px 0;
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .card-label {
+      font-size:10px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted);
+    }
+    .card-body { padding:10px 16px 14px; }
+
+    /* ── LEFT: City selector ── */
+    .city-list { padding:6px 10px 10px; display:flex; flex-direction:column; gap:4px; }
+    .city-row {
+      border-radius:var(--radius-sm); padding:9px 10px;
+      display:grid; grid-template-columns:26px 1fr auto auto; gap:8px; align-items:center;
+      border:1px solid transparent; background:transparent;
+      transition:background 160ms, border-color 160ms; cursor:pointer;
+    }
+    .city-row:hover { background:rgba(255,255,255,0.04); border-color:var(--border); }
+    .city-row.active { background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.12); }
+    .cicon { font-size:17px; }
+    .cmeta h4 { margin:0; font-size:13px; font-weight:500; color:var(--text-primary); }
+    .cmeta p  { margin:1px 0 0; font-size:10px; color:var(--text-muted); }
+    .ctemp { font-size:13px; font-weight:500; color:var(--text-secondary); font-variant-numeric:tabular-nums; }
+    .status-tag {
+      font-size:9px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase;
+      padding:3px 7px; border-radius:999px;
+    }
+    .tag-red   { background:var(--red-bg);   border:1px solid var(--red-bdr);   color:var(--red); }
+    .tag-amber { background:var(--amber-bg); border:1px solid var(--amber-bdr); color:var(--amber); }
+
+    /* ── LEFT: Agentic engine status ── */
+    .engine-panel { padding:14px 16px; display:flex; flex-direction:column; gap:12px; flex:1; }
+    .engine-status { display:flex; align-items:center; gap:8px; }
+    .status-indicator {
+      width:8px; height:8px; border-radius:50%; flex-shrink:0;
+      background:rgba(255,255,255,0.2); transition:background 400ms, box-shadow 400ms;
+    }
+    .status-indicator.clear    { background:var(--green); }
+    .status-indicator.disrupted{ background:var(--red);   }
+    .status-indicator.watch    { background:var(--amber); }
+    .status-label { font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); }
+
+    .engine-headline { font-size:17px; font-weight:600; line-height:1.25; letter-spacing:-0.01em; }
+    .engine-body     { font-size:12px; color:var(--text-secondary); line-height:1.6; }
+
+    /* Sim button */
+    .sim-btn {
+      width:100%; padding:10px 14px; border-radius:var(--radius-sm);
+      border:1px solid var(--border); background:var(--bg-elevated);
+      font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
+      color:var(--text-secondary); cursor:pointer;
+      transform:translateY(6px); opacity:0; pointer-events:none; transition:280ms ease;
+    }
+    .sim-btn.vis { transform:translateY(0); opacity:1; pointer-events:auto; }
+    .sim-btn:hover { background:var(--bg-tertiary); border-color:rgba(255,255,255,0.18); color:var(--text-primary); }
+
+    /* Mini workflow tracker */
+    .mini-steps { display:flex; flex-direction:column; gap:5px; }
+    .mini-step { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:400; color:var(--text-muted); transition:color 200ms; }
+    .mini-dot { width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,0.12); flex-shrink:0; transition:background 200ms; }
+    .mini-step.active { color:var(--text-primary); }
+    .mini-step.done   { color:var(--text-secondary); }
+    .mini-step.active .mini-dot { background:var(--green); }
+    .mini-step.done   .mini-dot { background:var(--green); opacity:0.6; }
+
+    /* ── CENTRE ── */
+    .centre-wrap { position:relative; }
+
+    /* Alert banner */
+    .alert-banner {
+      position:absolute; top:0; left:50%; transform:translateX(-50%) translateY(-4px);
+      width:min(560px,94%); z-index:5;
+      background:rgba(17,22,28,0.90); border:1px solid var(--amber-bdr);
+      border-radius:var(--radius-md); padding:12px 16px;
+      display:flex; gap:10px; align-items:flex-start;
+      opacity:0; pointer-events:none;
+      transition:opacity 360ms ease, transform 360ms cubic-bezier(0.22,1.4,0.4,1);
+    }
+    .alert-banner.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .alert-icon { font-size:14px; margin-top:1px; flex-shrink:0; }
+    .alert-title { font-size:13px; font-weight:600; color:var(--amber); margin-bottom:2px; }
+    .alert-desc  { font-size:11px; color:var(--text-secondary); }
+
+    /* Auto-trigger badge */
+    .auto-badge {
+      position:absolute; top:42px; left:50%; transform:translateX(-50%);
+      display:none; align-items:center; gap:7px;
+      padding:5px 14px; border-radius:999px;
+      background:var(--bg-secondary); border:1px solid var(--green-bdr);
+      font-size:10px; font-weight:500; color:rgba(0,201,81,0.75); letter-spacing:0.04em;
+      white-space:nowrap;
+    }
+    .auto-badge.show { display:flex; }
+    .auto-dot { width:5px; height:5px; border-radius:50%; background:var(--green); }
+
+    /* Weather context — restrained but present */
+    .weather-ctx {
+      position:absolute; left:24px; bottom:20px; pointer-events:none;
+    }
+    .wc-location {
+      font-size:10px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase;
+      color:rgba(255,255,255,0.35); margin-bottom:4px;
+    }
+    .wc-temp {
+      font-size:clamp(72px,8vw,108px); font-weight:300; line-height:1;
+      color:rgba(255,255,255,0.72); letter-spacing:-0.04em;
+    }
+    .wc-condition {
+      font-size:16px; font-weight:300; color:rgba(255,255,255,0.45);
+      margin-top:4px; letter-spacing:0.01em;
+    }
+
+    /* ── RIGHT: Decision panel ── */
+    .decision-list { padding:6px 12px 12px; display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex:1; min-height:0; }
+    .decision-list::-webkit-scrollbar { width:3px; }
+    .decision-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+    .emp-card {
+      border-radius:var(--radius-md); padding:12px;
+      background:var(--bg-secondary); border:1px solid var(--border);
+      transition:border-color 400ms ease, background 400ms ease;
+    }
+    .emp-card.disrupted { border-color:var(--red-bdr);   background:rgba(17,22,28,0.95); }
+    .emp-card.resolved  { border-color:var(--green-bdr); background:rgba(17,22,28,0.95); }
+
+    .emp-top { display:flex; align-items:center; gap:9px; margin-bottom:10px; }
+    .emp-avatar {
+      width:28px; height:28px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:10px; font-weight:700; flex-shrink:0;
+    }
+    .emp-name { font-size:13px; font-weight:600; }
+    .emp-role { font-size:10px; color:var(--text-muted); margin-top:1px; }
+
+    /* Info rows */
+    .info-row { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px; }
+    .info-key { font-size:10px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted); flex-shrink:0; min-width:60px; }
+    .info-val { font-size:11px; font-weight:500; color:var(--text-secondary); text-align:right; }
+    .info-val.warn    { color:var(--amber); }
+    .info-val.crossed { text-decoration:line-through; opacity:0.35; }
+    .info-val.new     { color:var(--green); }
+
+    /* Action block */
+    .action-block {
+      margin-top:9px; padding:9px 10px;
+      border-radius:var(--radius-sm);
+      background:var(--bg-tertiary); border:1px solid var(--border-subtle);
+    }
+    .action-title { font-size:9px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); margin-bottom:7px; }
+    .action-row  { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+    .action-row:last-child { margin-bottom:0; }
+    .action-key  { font-size:11px; color:var(--text-secondary); }
+    .action-val  { font-size:11px; font-weight:600; }
+    .val-granted { color:var(--green); }
+    .val-revoked { color:var(--red);   }
+    .val-pending { color:var(--text-muted); }
+
+    /* Divider */
+    .divider { height:1px; background:var(--border-subtle); margin:8px 0; }
+
+    /* ── RIGHT: Physical access panel ── */
+    .access-body { padding:0 14px 14px; }
+    .access-status-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .access-orb { width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.15); flex-shrink:0; transition:background 400ms; }
+    .access-orb.live { background:var(--green); }
+    .access-status-text { font-size:11px; font-weight:500; color:var(--text-muted); }
+
+    .scan-record {
+      background:var(--bg-tertiary); border:1px solid var(--border-subtle);
+      border-radius:var(--radius-sm); padding:10px 12px;
+    }
+    .scan-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
+    .scan-row:last-child { margin-bottom:0; }
+    .scan-key { font-size:10px; color:var(--text-muted); }
+    .scan-val { font-size:11px; font-weight:500; color:var(--text-primary); }
+    .scan-placeholder { font-size:11px; color:var(--text-muted); text-align:center; padding:6px 0; }
+
+    .access-decision {
+      margin-top:8px; padding:8px 12px;
+      border-radius:var(--radius-sm);
+      background:var(--green-bg); border:1px solid var(--green-bdr);
+      display:flex; align-items:center; gap:8px;
+      font-size:12px; font-weight:600; color:var(--green);
+    }
+    .access-reason { margin-top:5px; font-size:10px; color:var(--text-muted); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position:fixed; inset:0; z-index:50;
+      display:none; align-items:center; justify-content:center;
+      background:rgba(7,10,14,0.75); backdrop-filter:blur(14px);
+      opacity:0; transition:opacity 220ms ease;
+    }
+    .modal-overlay.show { display:flex; opacity:1; }
+    .modal {
+      width:min(560px,92vw); max-height:86vh; overflow-y:auto;
+      background:var(--bg-secondary); border:1px solid var(--border);
+      border-radius:var(--radius-lg);
+      box-shadow:0 24px 56px rgba(0,0,0,0.55);
+      transform:scale(0.97); transition:transform 220ms ease;
+    }
+    .modal-overlay.show .modal { transform:scale(1); }
+    .modal-overlay.show { display:flex; }
+
+    .modal-head {
+      padding:22px 22px 6px;
+      display:flex; align-items:flex-start; justify-content:space-between;
+      border-bottom:1px solid var(--border);
+    }
+    .modal-eyebrow { font-size:10px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); margin-bottom:5px; }
+    .modal-title { font-size:22px; font-weight:600; letter-spacing:-0.02em; }
+    .modal-close {
+      width:28px; height:28px; border-radius:var(--radius-sm);
+      border:1px solid var(--border); background:var(--bg-tertiary);
+      color:var(--text-secondary); font-size:16px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+      transition:background 160ms;
+    }
+    .modal-close:hover { background:var(--bg-elevated); color:var(--text-primary); }
+
+    .timeline { padding:16px 22px 22px; display:flex; flex-direction:column; gap:12px; }
+    .wf-step { display:grid; grid-template-columns:32px 1fr; gap:12px; }
+    .wf-left { position:relative; display:flex; justify-content:center; }
+    .wf-node {
+      width:24px; height:24px; border-radius:50%;
+      border:1px solid rgba(255,255,255,0.2); background:var(--bg-tertiary);
+      display:flex; align-items:center; justify-content:center;
+      font-size:10px; font-weight:600; color:var(--text-muted); flex-shrink:0;
+      transition:all 280ms ease;
+    }
+    .wf-step.active .wf-node { border-color:var(--green); background:var(--green-bg); color:var(--text-primary); }
+    .wf-step.done   .wf-node { border-color:var(--green); background:var(--green); color:#042910; }
+    .wf-step.done   .wf-node::before { content:"✓"; font-size:11px; font-weight:700; }
+    .wf-step.done   .wf-node span,
+    .wf-step.active .wf-node span { display:none; }
+    .connector { position:absolute; top:24px; left:15px; width:1px; height:calc(100% + 12px); background:var(--border); overflow:hidden; }
+    .connector i { position:absolute; inset:auto 0 100% 0; background:var(--green); transition:500ms ease; }
+    .wf-step.done .connector i { inset:0 0 0 0; }
+
+    .wf-content-title { font-size:13px; font-weight:600; margin-bottom:3px; }
+    .wf-content-desc  { font-size:11px; color:var(--text-muted); line-height:1.5; }
+    .payload {
+      margin-top:8px; padding:9px 10px;
+      background:var(--bg-primary); border:1px solid var(--border-subtle); border-radius:var(--radius-sm);
+      font-size:10px; font-family:'SF Mono','Fira Code',monospace; line-height:1.7;
+      color:var(--text-muted); display:none;
+    }
+    .wf-step.active .payload, .wf-step.done .payload { display:block; }
+    .pl-k { color:var(--blue); } .pl-s { color:#e8c27a; } .pl-v { color:rgba(0,201,81,0.85); }
+
+    .chips { margin-top:9px; display:flex; flex-wrap:wrap; gap:5px; }
+    .chip {
+      border-radius:999px; padding:4px 9px;
+      border:1px solid var(--border); background:var(--bg-tertiary);
+      font-size:10px; font-weight:500; color:var(--text-muted); transition:260ms ease;
+    }
+    .chip.lit { color:var(--text-primary); border-color:var(--green-bdr); background:var(--green-bg); }
+
+    .showcase {
+      margin-top:9px; padding:11px 12px;
+      border-radius:var(--radius-sm); border:1px solid var(--green-bdr);
+      background:var(--green-bg); font-size:13px; font-weight:600; color:var(--green);
+      display:none;
+    }
+    .showcase small { display:block; margin-top:3px; font-size:10px; font-weight:400; color:var(--text-secondary); }
+
+    .resolve-wrap { padding:4px 22px 20px; display:none; }
+    .resolve-btn {
+      width:100%; padding:11px 16px; border-radius:var(--radius-sm);
+      border:1px solid var(--border); background:var(--bg-elevated);
+      font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
+      color:var(--text-secondary); cursor:pointer; transition:180ms;
+    }
+    .resolve-btn:hover { background:var(--bg-tertiary); border-color:rgba(255,255,255,0.2); color:var(--text-primary); }
+
+    /* ── UTILITIES ── */
+    .fade-layer { transition:opacity 700ms ease; }
+    .fade-layer.fading { opacity:0.06; }
+
+    @keyframes breathe { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+  </style>
+</head>
+<body>
+  <canvas id="atmos"></canvas>
+  <div id="grade"></div>
+  <div id="fogw"></div>
+  <div id="darken"></div>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-mark"></div>
+      <span class="brand-text">service<span>now</span></span>
+      <div class="brand-divider"></div>
+      <span class="brand-sub">Workplace Decision Intelligence</span>
+    </div>
+    <div class="top-right">
+      <div class="live-pill"><span class="live-dot"></span>Live</div>
+      <div id="clock">00:00:00</div>
+    </div>
+  </header>
+
+  <main class="app fade-layer" id="appLayer">
+
+    <!-- LEFT COL -->
+    <section class="col">
+      <div class="card">
+        <div class="card-header"><span class="card-label">Location Monitor</span></div>
+        <div class="city-list" id="cityList"></div>
+      </div>
+
+      <div class="card" style="flex:1">
+        <div class="card-header"><span class="card-label">Agentic Engine</span></div>
+        <div class="engine-panel">
+          <div class="engine-status">
+            <span class="status-indicator" id="statusInd"></span>
+            <span class="status-label"    id="statusLabel">Monitoring</span>
+          </div>
+          <div class="engine-headline" id="engineHeadline"></div>
+          <div class="engine-body"     id="engineBody"></div>
+          <button class="sim-btn" id="triggerBtn">Simulate Disruption Event</button>
+          <div class="mini-steps" id="miniSteps"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CENTRE COL -->
+    <section class="col centre-wrap">
+      <div class="alert-banner" id="alertBanner">
+        <div class="alert-icon">⚠</div>
+        <div>
+          <div class="alert-title" id="alertTitle"></div>
+          <div class="alert-desc"  id="alertDesc"></div>
+        </div>
+      </div>
+      <div class="auto-badge" id="autoBadge">
+        <span class="auto-dot"></span>
+        <span id="autoText">Workplace reallocation initiating…</span>
+      </div>
+      <div class="weather-ctx">
+        <div class="wc-location"  id="wcCity"></div>
+        <div class="wc-temp"      id="wcTemp"></div>
+        <div class="wc-condition" id="wcCond"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT COL -->
+    <section class="col">
+
+      <div class="card" style="flex:1.7;min-height:0;display:flex;flex-direction:column;">
+        <div class="card-header" style="flex-shrink:0">
+          <span class="card-label">Live Decision Panel</span>
+          <span class="card-label" id="impactCount" style="color:var(--text-muted)"></span>
+        </div>
+        <div class="decision-list" id="decisionList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-label">Physical Access System</span></div>
+        <div class="access-body">
+          <div class="access-status-row">
+            <div class="access-orb" id="accessOrb"></div>
+            <div class="access-status-text" id="accessStatusText">Awaiting badge activity</div>
+          </div>
+          <div class="scan-record" id="scanRecord">
+            <div class="scan-placeholder">No badge scan recorded</div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- WORKFLOW MODAL -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="modal-eyebrow">ServiceNow — Agentic Workflow</div>
+          <div class="modal-title">Workplace reallocation in progress</div>
+        </div>
+        <button class="modal-close" id="closeModal">✕</button>
+      </div>
+      <div class="timeline" id="timeline"></div>
+      <div class="resolve-wrap" id="resolveWrap">
+        <button class="resolve-btn" id="resolveBtn">Mark Event Resolved — Restore All Assignments</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ── CONFIGURATION ──
+  // To enable the live ServiceNow webhook, paste your Scripted REST API URL below.
+  // Leave as empty string "" to run in demo-only mode (safe to share).
+  const SN_WEBHOOK_URL = "https://demoalectriallwfze131186.service-now.com/api/snc/workplace_disruption_api/receive";
+
+  // ── CITY DATA ──
+  const CITIES = {
+    london: {
+      name:"London", temp:9, condition:"Severe Thunderstorm", icon:"⛈",
+      weather:"storm", disruption:"red",
+      alertTitle:"Critical Travel Disruption — London",
+      alertDesc:"TfL suspending Jubilee, Central & Northern lines. Surface travel severely impacted.",
+      sky:["#050708","#0B0F14","#141920"], grade:"rgba(30,6,6,0.45)",
+      headline:"Workforce disruption detected",
+      body:"6 employees cannot reach their assigned office. Reallocation ready to execute."
+    },
+    manchester: {
+      name:"Manchester", temp:2, condition:"Heavy Snowfall", icon:"❄",
+      weather:"snow", disruption:"red",
+      alertTitle:"Severe Snowfall — Manchester",
+      alertDesc:"National Rail suspended. Metrolink halted. Roads impassable across M1–M4.",
+      sky:["#090C10","#10151C","#181E28"], grade:"rgba(14,20,30,0.42)",
+      headline:"Snow event blocking workforce routes",
+      body:"North corridor transport suspended. Safe office reallocation in progress."
+    },
+    edinburgh: {
+      name:"Edinburgh", temp:7, condition:"Dense Fog", icon:"🌫",
+      weather:"fog", disruption:"amber",
+      alertTitle:"Visibility Advisory — Edinburgh",
+      alertDesc:"Scotrail delays and airport disruption. City centre campus access constrained.",
+      sky:["#3A4148","#4E565E","#666E76"], grade:"rgba(40,44,48,0.45)",
+      headline:"Reduced visibility advisory active",
+      body:"Partial disruption protocols active. Teams being routed to low-risk locations."
+    },
+    birmingham: {
+      name:"Birmingham", temp:13, condition:"Partly Cloudy", icon:"⛅",
+      weather:"cloudy", disruption:null,
+      alertTitle:"", alertDesc:"",
+      sky:["#1C2836","#283A50","#3D5570"], grade:"rgba(20,32,44,0.28)",
+      headline:"All locations operating normally",
+      body:"No disruption detected. Stable commuting conditions across all monitored zones."
+    },
+    bristol: {
+      name:"Bristol", temp:11, condition:"Light Rain", icon:"🌧",
+      weather:"rain", disruption:null,
+      alertTitle:"", alertDesc:"",
+      sky:["#0F1D2C","#1B3348","#2E5070"], grade:"rgba(16,34,52,0.32)",
+      headline:"Monitoring light precipitation",
+      body:"Network healthy. Agentic workflows on standby."
+    }
+  };
+  const CITY_ORDER = ["london","manchester","edinburgh","birmingham","bristol"];
+
+  const EMPLOYEES = [
+    {init:"SR",name:"Sarah R.",  role:"Sr. Product Manager", home:"Stratford, E15",      office:"London HQ, EC2",    newOffice:"Paddington, W2",    bg:"rgba(77,166,255,0.18)",  fg:"#4DA6FF", reason:"Shortest viable commute: 14 min vs 52 min to HQ"},
+    {init:"JM",name:"James M.",  role:"Solution Consultant", home:"Bethnal Green, E2",   office:"Bishopsgate, EC2",  newOffice:"Shoreditch, E1",    bg:"rgba(0,201,81,0.15)",    fg:"#00C951", reason:"Shortest viable commute: 9 min vs 44 min to HQ"},
+    {init:"AL",name:"Aisha L.",  role:"Account Executive",   home:"Brixton, SW9",        office:"Waterloo, SE1",     newOffice:"Vauxhall, SW8",     bg:"rgba(167,139,250,0.18)", fg:"#A78BFA", reason:"Shortest viable commute: 11 min vs 38 min to HQ"},
+    {init:"TK",name:"Tom K.",    role:"Platform Architect",  home:"Hackney, E8",         office:"Bank, EC3",         newOffice:"Farringdon, EC1",   bg:"rgba(245,166,35,0.16)",  fg:"#F5A623", reason:"Shortest viable commute: 17 min vs 51 min to HQ"},
+    {init:"PW",name:"Priya W.",  role:"Customer Success",    home:"Greenwich, SE10",     office:"Canary Wharf, E14", newOffice:"Stratford, E15",    bg:"rgba(255,77,77,0.15)",   fg:"#FF4D4D", reason:"Shortest viable commute: 22 min vs 58 min to HQ"},
+    {init:"DC",name:"David C.",  role:"Engineering Lead",    home:"Islington, N1",       office:"Aldgate, EC3",      newOffice:"Bethnal Green, E2", bg:"rgba(0,201,81,0.15)",    fg:"#00C951", reason:"Shortest viable commute: 8 min vs 47 min to HQ"},
+  ];
+
+  let activeCityKey="london", trans=null, autoTimer=null, autoTick=null, wfFired=false;
+
+  // ── CANVAS ENGINE ──
+  const canvas=document.getElementById("atmos"), ctx=canvas.getContext("2d");
+  let W=innerWidth, H=innerHeight, DPR=Math.min(devicePixelRatio||1,2);
+  canvas.width=W*DPR; canvas.height=H*DPR; ctx.scale(DPR,DPR);
+
+  const S={bg:CITIES[activeCityKey].sky.map(h2r), rain:[], snow:[], fog:[], clouds:[], ltAt:0, ltNext:perf()+rnd(8000,14000), fogStr:0};
+
+  function rnd(a,b){return a+Math.random()*(b-a);}
+  function clamp(x,a,b){return Math.max(a,Math.min(b,x));}
+  function lerp(a,b,t){return a+(b-a)*t;}
+  function h2r(h){const n=h.replace("#","");return[parseInt(n.slice(0,2),16),parseInt(n.slice(2,4),16),parseInt(n.slice(4,6),16)];}
+  function rgb(r,g,b,a=1){return`rgba(${r|0},${g|0},${b|0},${a})`;}
+  function perf(){return performance.now();}
+  function timeStr(){return[new Date().getHours(),new Date().getMinutes(),new Date().getSeconds()].map(v=>String(v).padStart(2,"0")).join(":");}
+
+  function buildParticles(cond){
+    S.rain=[];S.snow=[];S.fog=[];S.clouds=[];
+    const d=Math.max(1,(W*H)/(1920*1080));
+    const rain=(cond==="storm"?600:cond==="rain"?240:50)*d|0;
+    const snow=(cond==="snow"?380:50)*d|0;
+    const fog =(cond==="fog"?10:cond==="cloudy"?5:3)*d|0;
+    const cld =(cond==="storm"?8:6)*d|0;
+    for(let i=0;i<rain;i++) S.rain.push({x:Math.random()*W,y:Math.random()*H,l:rnd(10,22),s:rnd(420,800),a:cond==="storm"?0.6:0.45});
+    for(let i=0;i<snow;i++){const z=rnd(0.3,1.1);S.snow.push({x:Math.random()*W,y:Math.random()*H,r:rnd(1,3.2)*z,sx:rnd(-14,14)*z,sy:rnd(10,44)*z,z});}
+    for(let i=0;i<fog;i++) {const z=rnd(0.5,1.3);S.fog.push({x:rnd(-W*.2,W*1.2),y:rnd(H*.1,H*.92),r:rnd(180,400)*z,vx:rnd(5,15)/z,alpha:rnd(0.05,0.14)/z});}
+    for(let i=0;i<cld;i++) S.clouds.push({x:rnd(-W*.4,W*1.2),y:rnd(10,H*.5),r:rnd(180,480),vx:rnd(3,10),alpha:rnd(0.03,0.11)});
+  }
+
+  function drawFrame(dt,city){
+    // sky gradient
+    const[c1,c2,c3]=S.bg;
+    const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,rgb(c1[0],c1[1],c1[2]));
+    g.addColorStop(.5,rgb(c2[0],c2[1],c2[2]));
+    g.addColorStop(1,rgb(c3[0],c3[1],c3[2]));
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+    // clouds
+    for(const c of S.clouds){
+      c.x+=c.vx*dt; if(c.x-c.r>W+40)c.x=-c.r-40;
+      const cg=ctx.createRadialGradient(c.x,c.y,c.r*.12,c.x,c.y,c.r);
+      cg.addColorStop(0,`rgba(255,255,255,${c.alpha})`);
+      cg.addColorStop(1,"rgba(255,255,255,0)");
+      ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill();
+    }
+
+    // lightning — more subtle
+    if(city.weather==="storm"){
+      if(perf()>S.ltNext){S.ltAt=perf();S.ltNext=perf()+rnd(10000,16000);}
+      const age=perf()-S.ltAt;
+      if(age>=0&&age<140){ctx.fillStyle=`rgba(200,218,255,${.2*(1-age/140)})`;ctx.fillRect(0,0,W,H);}
+    }
+
+    // rain — slightly reduced opacity
+    if(city.weather==="storm"||city.weather==="rain"){
+      const ang=city.weather==="storm"?.38:.25;
+      ctx.lineCap="round";
+      for(const p of S.rain){
+        p.y+=p.s*dt; p.x+=p.s*dt*ang;
+        if(p.y>H+24||p.x>W+24){p.y=-24;p.x=Math.random()*W*.85;}
+        ctx.strokeStyle=`rgba(190,210,245,${p.a})`;
+        ctx.lineWidth=city.weather==="storm"?1.2:0.9;
+        ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.l*ang,p.y-p.l);ctx.stroke();
+      }
+    }
+
+    // snow
+    if(city.weather==="snow"){
+      for(const p of S.snow){
+        p.y+=p.sy*dt; p.x+=(Math.sin((p.y+p.r)*.011)*20+p.sx)*dt;
+        if(p.y>H+8){p.y=-8;p.x=Math.random()*W;}
+        if(p.x>W+8)p.x=-8; if(p.x<-8)p.x=W+8;
+        ctx.fillStyle=`rgba(230,238,252,${clamp(.38+p.z*.38,0,0.8)})`;
+        ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+      }
+    }
+
+    // fog
+    const fogTgt=city.weather==="fog"?.35:city.weather==="cloudy"?.14:.04;
+    S.fogStr=lerp(S.fogStr,fogTgt,.018);
+    for(const p of S.fog){
+      p.x+=p.vx*dt; if(p.x-p.r>W+16)p.x=-p.r-16;
+      const fg=ctx.createRadialGradient(p.x,p.y,p.r*.18,p.x,p.y,p.r);
+      fg.addColorStop(0,`rgba(200,212,224,${p.alpha*(1+S.fogStr)})`);
+      fg.addColorStop(1,"rgba(200,212,224,0)");
+      ctx.fillStyle=fg; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  // ── UI ELEMENTS ──
+  const appLayer=document.getElementById("appLayer");
+  const cityListEl=document.getElementById("cityList");
+  const statusInd=document.getElementById("statusInd");
+  const statusLabel=document.getElementById("statusLabel");
+  const engineHeadline=document.getElementById("engineHeadline");
+  const engineBody=document.getElementById("engineBody");
+  const triggerBtn=document.getElementById("triggerBtn");
+  const miniSteps=document.getElementById("miniSteps");
+  const alertBanner=document.getElementById("alertBanner");
+  const alertTitle=document.getElementById("alertTitle");
+  const alertDesc=document.getElementById("alertDesc");
+  const autoBadge=document.getElementById("autoBadge");
+  const autoText=document.getElementById("autoText");
+  const wcCity=document.getElementById("wcCity");
+  const wcTemp=document.getElementById("wcTemp");
+  const wcCond=document.getElementById("wcCond");
+  const decisionList=document.getElementById("decisionList");
+  const impactCount=document.getElementById("impactCount");
+  const accessOrb=document.getElementById("accessOrb");
+  const accessStatusText=document.getElementById("accessStatusText");
+  const scanRecord=document.getElementById("scanRecord");
+  const grade=document.getElementById("grade");
+  const fogw=document.getElementById("fogw");
+
+  // ── DECISION PANEL ──
+  function renderDecisions(mode){
+    // mode: "idle" | "disrupted" | "resolved"
+    decisionList.innerHTML="";
+    impactCount.textContent = mode!=="idle" ? `${EMPLOYEES.length} affected` : "";
+
+    EMPLOYEES.forEach((e,i)=>{
+      const el=document.createElement("div");
+      el.className="emp-card"+(mode==="disrupted"?" disrupted":mode==="resolved"?" resolved":"");
+      el.id=`ec-${i}`;
+
+      const disruptRow = mode!=="idle"
+        ?`<div class="info-row"><span class="info-key">Status</span><span class="info-val warn">Primary route disrupted</span></div>`:"";
+
+      const actionBlock = mode==="resolved" ? `
+        <div class="divider"></div>
+        <div class="action-block">
+          <div class="action-title">Decision Taken</div>
+          <div class="action-row"><span class="action-key">→ Relocated to</span><span class="action-val val-granted">${e.newOffice}</span></div>
+          <div class="action-title" style="margin-top:8px">Badge Access</div>
+          <div class="action-row"><span class="action-key">${e.office}</span><span class="action-val val-revoked">Disabled</span></div>
+          <div class="action-row"><span class="action-key">${e.newOffice}</span><span class="action-val val-granted">Enabled</span></div>
+          <div class="action-row"><span class="action-key">Valid until</span><span class="action-val val-granted">18:00 today</span></div>
+          <div class="action-title" style="margin-top:8px">Reason</div>
+          <div class="action-row"><span class="action-key" style="color:var(--text-secondary);font-size:10px;font-weight:400;letter-spacing:0">${e.reason}</span></div>
+        </div>` : "";
+
+      el.innerHTML=`
+        <div class="emp-top">
+          <div class="emp-avatar" style="background:${e.bg};color:${e.fg}">${e.init}</div>
+          <div>
+            <div class="emp-name">${e.name}</div>
+            <div class="emp-role">${e.role}</div>
+          </div>
+        </div>
+        <div class="info-row"><span class="info-key">Home</span><span class="info-val">📍 ${e.home}</span></div>
+        <div class="info-row"><span class="info-key">Office</span><span class="info-val ${mode==="resolved"?"crossed":""}">🏢 ${e.office}</span></div>
+        ${disruptRow}${actionBlock}
+      `;
+      decisionList.appendChild(el);
+    });
+  }
+
+  // ── PHYSICAL ACCESS PANEL ──
+  function showAccessGranted(emp){
+    accessOrb.className="access-orb live";
+    accessStatusText.textContent="Badge scan processed";
+    scanRecord.innerHTML=`
+      <div class="scan-row"><span class="scan-key">Employee</span><span class="scan-val">${emp.name}</span></div>
+      <div class="scan-row"><span class="scan-key">Location</span><span class="scan-val">${emp.newOffice}</span></div>
+      <div class="scan-row"><span class="scan-key">Time</span><span class="scan-val">${timeStr()}</span></div>
+      <div class="access-decision">✅ Access Granted</div>
+      <div class="access-reason">Reason: Temporary reassignment active · Valid until 18:00</div>
+    `;
+  }
+
+  function resetAccessPanel(){
+    accessOrb.className="access-orb";
+    accessStatusText.textContent="Awaiting badge activity";
+    scanRecord.innerHTML=`<div class="scan-placeholder">No badge scan recorded</div>`;
+  }
+
+  // ── RENDER CITY ──
+  function renderCityRows(){
+    cityListEl.innerHTML="";
+    CITY_ORDER.forEach(key=>{
+      const c=CITIES[key];
+      const btn=document.createElement("button");
+      btn.type="button";
+      btn.className="city-row"+(key===activeCityKey?" active":"");
+      btn.innerHTML=`
+        <div class="cicon">${c.icon}</div>
+        <div class="cmeta"><h4>${c.name}</h4><p>${c.condition}</p></div>
+        <div class="ctemp">${c.temp}°</div>
+        ${c.disruption==="red"?'<span class="status-tag tag-red">Alert</span>':c.disruption==="amber"?'<span class="status-tag tag-amber">Watch</span>':""}
+      `;
+      btn.addEventListener("click",()=>switchCity(key));
+      cityListEl.appendChild(btn);
+    });
+  }
+
+  function renderMain(city){
+    const dis=!!city.disruption;
+    wcCity.textContent=city.name.toUpperCase();
+    wcTemp.innerHTML=`${city.temp}°`;
+    wcCond.textContent=city.condition;
+
+    alertTitle.textContent=city.alertTitle;
+    alertDesc.textContent=city.alertDesc;
+    alertBanner.classList.toggle("show",dis);
+
+    triggerBtn.classList.toggle("vis",dis);
+
+    const ind=dis?"red"===city.disruption?"disrupted":"watch":"clear";
+    statusInd.className="status-indicator "+ind;
+    statusLabel.textContent=dis?"Disruption detected":"Monitoring";
+    engineHeadline.textContent=city.headline;
+    engineBody.textContent=city.body;
+    if(!dis)miniSteps.innerHTML="";
+
+    grade.style.background=`radial-gradient(ellipse at 60% 0%,transparent 30%,rgba(0,0,0,0.5) 100%),${city.grade}`;
+    fogw.style.background=`rgba(210,220,232,${city.weather==="fog"?.08:0})`;
+
+    renderDecisions(dis?"disrupted":"idle");
+    resetAccessPanel();
+  }
+
+  function switchCity(key){
+    if(key===activeCityKey)return;
+    if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}
+    if(autoTick){clearInterval(autoTick);autoTick=null;}
+    autoBadge.classList.remove("show");
+    wfFired=false;
+    const prev=CITIES[activeCityKey], next=CITIES[key];
+    appLayer.classList.add("fading");
+    setTimeout(()=>appLayer.classList.remove("fading"),380);
+    activeCityKey=key;
+    renderCityRows(); renderMain(next); buildParticles(next.weather);
+    trans={start:perf(),dur:2200,from:prev.sky.map(h2r),to:next.sky.map(h2r),dark:[[8,10,13],[10,13,16],[13,16,20]]};
+    setTimeout(()=>scheduleAutoTrigger(),900);
+  }
+
+  // ── WORKFLOW MODAL ──
+  const modalOverlay=document.getElementById("modalOverlay");
+  const closeModalBtn=document.getElementById("closeModal");
+  const resolveBtn=document.getElementById("resolveBtn");
+  const resolveWrap=document.getElementById("resolveWrap");
+  const timeline=document.getElementById("timeline");
+
+  const WF=[
+    ["Event detection & classification",
+     "Disruption signal validated. Postcode zones mapped to affected transport corridors.",
+     `{ <span class="pl-k">city</span>:<span class="pl-s">"London"</span>, <span class="pl-k">severity</span>:<span class="pl-s">"CRITICAL"</span>, <span class="pl-k">zones</span>:<span class="pl-s">["EC1","EC2","SE1","WC1"]</span> }`],
+    ["Employees matched to disruption zone",
+     "847 commute profiles cross-referenced. 6 employees cannot reach their assigned office.",
+     `{ <span class="pl-k">scanned</span>:<span class="pl-v">847</span>, <span class="pl-k">affected</span>:<span class="pl-v">6</span>, <span class="pl-k">method</span>:<span class="pl-s">"postcode_polygon_match"</span> }`],
+    ["Nearest safe office calculated",
+     "Live transport graph finds optimal reachable office per employee, excluding disrupted routes.",
+     `{ <span class="pl-k">algorithm</span>:<span class="pl-s">"dijkstra_transport_v2"</span>, <span class="pl-k">resolved</span>:<span class="pl-v">6</span>/<span class="pl-v">6</span> }`],
+    ["Personalised notifications sent",
+     "Alerts dispatched via Slack, Teams and SMS with new office address and travel instructions.",
+     `{ <span class="pl-k">channels</span>:[<span class="pl-s">"slack"</span>,<span class="pl-s">"teams"</span>,<span class="pl-s">"sms"</span>], <span class="pl-k">delivered</span>:<span class="pl-v">6</span>/<span class="pl-v">6</span> }`],
+    ["HR location records updated",
+     "ServiceNow HR writes new office assignments. Auto-revert scheduled on event resolution.",
+     `{ <span class="pl-k">table</span>:<span class="pl-s">"sn_hr_core_location"</span>, <span class="pl-k">updated</span>:<span class="pl-v">6</span>, <span class="pl-k">revert_on</span>:<span class="pl-s">"event_resolved"</span> }`],
+    ["Physical badge access provisioned",
+     "IAM sub-workflow grants new office entry and revokes original. Physical lock updated in real time.",
+     `{ <span class="pl-k">grants</span>:<span class="pl-v">6</span>, <span class="pl-k">revocations</span>:<span class="pl-v">6</span>, <span class="pl-k">physical_lock</span>:<span class="pl-s">"LOCATION_AWARE→ACTIVE"</span> }`]
+  ];
+  const DELAYS=[0,1800,3600,5000,6800,8800];
+  const CHIP_NAMES=["Sarah R","James M","Aisha L","Tom K","Priya W","David C"];
+  let wfTimers=[];
+
+  function clearWfTimers(){wfTimers.forEach(t=>clearTimeout(t));wfTimers=[];}
+
+  function buildTimeline(){
+    timeline.innerHTML=""; resolveWrap.style.display="none";
+    WF.forEach((s,i)=>{
+      const row=document.createElement("div");
+      row.className="wf-step"; row.id=`wf-${i}`;
+      row.innerHTML=`
+        <div class="wf-left">
+          <div class="wf-node"><span>${i+1}</span></div>
+          ${i<WF.length-1?'<div class="connector"><i></i></div>':""}
+        </div>
+        <div class="wf-content">
+          <div class="wf-content-title">${s[0]}</div>
+          <div class="wf-content-desc">${s[1]}</div>
+          <div class="payload">${s[2]}</div>
+          ${i===1?'<div class="chips" id="chips"></div>':""}
+          ${i===5?'<div class="showcase" id="showcase">🔓 Physical Prototype Door — Access Granted<small>Original office: REVOKED · New office: GRANTED · Valid until 18:00</small></div>':""}
+        </div>`;
+      timeline.appendChild(row);
+    });
+    const cw=document.getElementById("chips");
+    if(cw)cw.innerHTML=CHIP_NAMES.map(n=>`<span class="chip">${n}</span>`).join("");
+  }
+
+  function runWorkflow(){
+    clearWfTimers(); buildTimeline();
+    const labels=["Event detected","Employees matched","Safe office found","Notifications sent","Records updated","Badge access live"];
+    miniSteps.innerHTML=labels.map(s=>`<div class="mini-step"><span class="mini-dot"></span>${s}</div>`).join("");
+    const mrows=[...miniSteps.querySelectorAll(".mini-step")];
+
+    DELAYS.forEach((delay,i)=>{
+      wfTimers.push(setTimeout(()=>{
+        const el=document.getElementById(`wf-${i}`);if(!el)return;
+        el.classList.add("active");
+        if(i<mrows.length)mrows[i].classList.add("active");
+        if(i===1){
+          const chips=[...document.querySelectorAll(".chip")];
+          chips.forEach((c,idx)=>wfTimers.push(setTimeout(()=>c.classList.add("lit"),idx*190)));
+        }
+      },delay));
+
+      wfTimers.push(setTimeout(()=>{
+        const el=document.getElementById(`wf-${i}`);if(!el)return;
+        el.classList.remove("active"); el.classList.add("done");
+        if(i<mrows.length){mrows[i].classList.remove("active");mrows[i].classList.add("done");}
+        if(i===3){ renderDecisions("resolved"); }
+        if(i===5){
+          const sc=document.getElementById("showcase");
+          if(sc)sc.style.display="block";
+          resolveWrap.style.display="block";
+          wfTimers.push(setTimeout(()=>showAccessGranted(EMPLOYEES[0]),800));
+        }
+      },delay+1300));
+    });
+  }
+
+  function openModal(){
+    if(wfFired)return;
+    wfFired=true;
+    autoBadge.classList.remove("show");
+    modalOverlay.style.display="flex";
+    requestAnimationFrame(()=>requestAnimationFrame(()=>modalOverlay.classList.add("show")));
+    runWorkflow();
+    // ServiceNow webhook — URL configured separately, not hardcoded
+    const city=CITIES[activeCityKey];
+    if(city.disruption && typeof SN_WEBHOOK_URL !== "undefined" && SN_WEBHOOK_URL){
+      fetch(SN_WEBHOOK_URL,{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({event:city.alertTitle,severity:city.disruption==="red"?"critical":"high",location:city.name,conditions:city.condition,affected_employees:6,timestamp:new Date().toISOString(),source:"ServiceNow Workplace Decision Intelligence"})
+      }).then(r=>console.log("✅ ServiceNow:",r.status)).catch(e=>console.warn("⚠ SN webhook:",e));
+    }
+  }
+
+  function closeWorkflow(){
+    modalOverlay.classList.remove("show");
+    setTimeout(()=>{ if(!modalOverlay.classList.contains("show")) modalOverlay.style.display="none"; },240);
+    clearWfTimers();
+  }
+
+  function resolveEvent(){
+    closeWorkflow(); wfFired=false;
+    renderDecisions("idle"); resetAccessPanel(); miniSteps.innerHTML="";
+  }
+
+  // ── AUTO-TRIGGER ──
+  function scheduleAutoTrigger(){
+    if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}
+    if(autoTick){clearInterval(autoTick);autoTick=null;}
+    const city=CITIES[activeCityKey];
+    if(!city.disruption||wfFired)return;
+    autoBadge.classList.add("show");
+    let secs=8;
+    autoText.textContent=`Workplace reallocation initiating in ${secs}s…`;
+    autoTick=setInterval(()=>{
+      secs--;
+      if(secs>0)autoText.textContent=`Workplace reallocation initiating in ${secs}s…`;
+      else{clearInterval(autoTick);autoTick=null;}
+    },1000);
+    autoTimer=setTimeout(()=>{
+      // Countdown ends — badge stays visible, waiting for presenter to trigger
+      autoText.textContent="Disruption active — press Space or click to respond";
+    },8000);
+  }
+
+  // ── CLOCK ──
+  function tickClock(){ document.getElementById("clock").textContent=timeStr(); }
+
+  // ── ANIMATION LOOP ──
+  let last=perf();
+  function loop(){
+    const t=perf(), dt=clamp((t-last)/1000,.001,.033); last=t;
+    if(trans){
+      const p=clamp((t-trans.start)/trans.dur,0,1);
+      const q=p<.5?p/.5:(p-.5)/.5;
+      const a=p<.5?trans.from:trans.dark, b=p<.5?trans.dark:trans.to;
+      for(let i=0;i<3;i++){S.bg[i][0]=lerp(a[i][0],b[i][0],q);S.bg[i][1]=lerp(a[i][1],b[i][1],q);S.bg[i][2]=lerp(a[i][2],b[i][2],q);}
+      if(p>=1)trans=null;
+    } else {
+      const tgt=CITIES[activeCityKey].sky.map(h2r);
+      for(let i=0;i<3;i++){S.bg[i][0]=lerp(S.bg[i][0],tgt[i][0],.018);S.bg[i][1]=lerp(S.bg[i][1],tgt[i][1],.018);S.bg[i][2]=lerp(S.bg[i][2],tgt[i][2],.018);}
+    }
+    drawFrame(dt,CITIES[activeCityKey]);
+    requestAnimationFrame(loop);
+  }
+
+  // ── INIT ──
+  function init(){
+    renderCityRows();
+    renderMain(CITIES[activeCityKey]);
+    buildParticles(CITIES[activeCityKey].weather);
+    tickClock(); setInterval(tickClock,1000);
+    loop();
+    setTimeout(()=>scheduleAutoTrigger(),3000);
+  }
+
+  window.addEventListener("resize",()=>{
+    W=innerWidth;H=innerHeight;DPR=Math.min(devicePixelRatio||1,2);
+    canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+    buildParticles(CITIES[activeCityKey].weather);
+  });
+
+  triggerBtn.addEventListener("click",openModal);
+  closeModalBtn.addEventListener("click",closeWorkflow);
+  resolveBtn.addEventListener("click",resolveEvent);
+  modalOverlay.addEventListener("click",e=>{if(e.target===modalOverlay)closeWorkflow();});
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape") closeWorkflow();
+    if(e.key===" "||e.key==="Enter"){
+      e.preventDefault();
+      const city=CITIES[activeCityKey];
+      if(city.disruption&&!wfFired) openModal();
+    }
+  });
+
+  init();
+  </script>
+</body>
+</html>
