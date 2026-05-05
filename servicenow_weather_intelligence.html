@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiceNow Weather Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0d12;
+      --glass: rgba(255, 255, 255, 0.05);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --text-primary: rgba(255, 255, 255, 0.92);
+      --text-secondary: rgba(255, 255, 255, 0.55);
+      --text-muted: rgba(255, 255, 255, 0.3);
+      --green: #00c951;
+      --amber: #f5a623;
+      --red: #ff4d4d;
+      --blue: #4da6ff;
+      --accent: #7ea2c7;
+      --colgrade: rgba(16, 22, 30, 0.4);
+      --fog-opacity: 0;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text-primary); }
+    body { font-family: "DM Sans", sans-serif; }
+    #atmosphere-canvas { position: fixed; inset: 0; z-index: 0; }
+    #grading { position: fixed; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(circle at 75% 15%, transparent 0%, rgba(0,0,0,0.28) 72%), var(--colgrade); transition: background 800ms ease; }
+    #fog-wash { position: fixed; inset: 0; z-index: 2; pointer-events: none; background: rgba(220, 225, 235, var(--fog-opacity)); mix-blend-mode: screen; transition: background 600ms ease; }
+
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 72px;
+      display: flex; align-items: center; justify-content: space-between; padding: 18px 28px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-family: "DM Mono", monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--text-secondary); }
+    .logo-mark { width: 14px; height: 14px; border-radius: 4px; background: var(--green); box-shadow: 0 0 16px rgba(0, 201, 81, 0.45); }
+    .top-right { display: flex; align-items: center; gap: 16px; font-family: "DM Mono", monospace; font-size: 12px; color: var(--text-secondary); }
+    .live-pill { display: flex; align-items: center; gap: 8px; border-radius: 999px; padding: 7px 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); letter-spacing: 0.15em; text-transform: uppercase; }
+    .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px rgba(0, 201, 81, 0.7); animation: pulse 1.8s infinite; }
+
+    .app {
+      position: relative; z-index: 10; height: 100vh; width: 100vw; padding: 84px 20px 20px;
+      display: grid; grid-template-columns: 360px minmax(560px, 1fr) 300px; gap: 16px;
+    }
+    .col { min-height: 0; display: flex; flex-direction: column; gap: 16px; }
+    .glass {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 20px 44px rgba(0,0,0,0.24);
+      overflow: hidden;
+    }
+    .card-title {
+      font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted);
+      padding: 16px 18px 8px;
+    }
+
+    .city-list { padding: 4px 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .city-row {
+      border-radius: 14px; padding: 10px 12px; display: grid; grid-template-columns: 34px 1fr auto auto; gap: 10px; align-items: center;
+      background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+      transition: 200ms ease;
+      cursor: pointer;
+    }
+    .city-row:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); }
+    .city-row.active { background: rgba(255,255,255,0.11); border-color: rgba(255,255,255,0.25); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+    .icon { font-size: 24px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.22)); animation: bob 2.6s ease-in-out infinite; }
+    .city-meta h4 { margin: 0; font-weight: 500; font-size: 14px; }
+    .city-meta p { margin: 3px 0 0; font-family: "DM Mono", monospace; color: var(--text-muted); font-size: 11px; }
+    .city-temp { font-family: "DM Mono", monospace; font-size: 14px; color: var(--text-secondary); }
+    .alert-pill {
+      font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 5px 8px; border-radius: 999px; color: #fff;
+      background: rgba(255,77,77,0.2); border: 1px solid rgba(255,77,77,0.6);
+      animation: pulseRed 1.4s infinite;
+    }
+
+    .status-panel { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+    .status-head { display: flex; align-items: center; gap: 10px; font-family: "DM Mono", monospace; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.16em; }
+    .status-orb { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px rgba(0,201,81,0.7); }
+    .status-orb.disrupted { background: var(--red); box-shadow: 0 0 12px rgba(255,77,77,0.7); animation: pulseRed 1.2s infinite; }
+    .status-panel h3 { margin: 0; font-size: 22px; font-weight: 500; line-height: 1.16; }
+    .status-panel p { margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+    .agent-btn-wrap { min-height: 46px; }
+    .agent-btn {
+      width: 100%; border: 0; border-radius: 12px; padding: 12px 10px; font-family: "DM Sans", sans-serif; font-weight: 700; color: white;
+      background: linear-gradient(135deg, rgba(0,201,81,0.95), rgba(0,180,72,0.8)); box-shadow: 0 0 24px rgba(0,201,81,0.4);
+      transform: translateY(14px); opacity: 0; pointer-events: none; transition: 300ms ease;
+    }
+    .agent-btn.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
+    .mini-steps { display: grid; gap: 8px; margin-top: 6px; }
+    .mini-step { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); font-family: "DM Mono", monospace; }
+    .mini-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); }
+    .mini-step.done { color: var(--text-secondary); }
+    .mini-step.active { color: #fff; }
+    .mini-step.done .mini-dot, .mini-step.active .mini-dot { background: var(--green); box-shadow: 0 0 10px rgba(0,201,81,0.7); }
+
+    .center-wrap { position: relative; }
+    .hero {
+      position: absolute; left: 28px; bottom: 24px; width: min(720px, 94%);
+      transition: opacity 800ms ease, transform 800ms ease;
+    }
+    .hero-city { font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--text-muted); }
+    .hero-temp { font-family: "Cormorant Garamond", serif; font-weight: 300; font-size: clamp(140px, 15vw, 210px); line-height: 0.92; margin-top: 4px; }
+    .hero-cond { font-family: "Cormorant Garamond", serif; font-style: italic; font-weight: 300; font-size: 28px; color: rgba(255,255,255,0.8); margin-top: 6px; }
+    .micro-stats { margin-top: 24px; display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; }
+    .micro { padding: 12px 10px; border-top: 1px solid rgba(255,255,255,0.14); }
+    .micro .k { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+    .micro .v { margin-top: 8px; font-family: "DM Mono", monospace; font-size: 15px; color: var(--text-primary); }
+    .alert-bar {
+      margin-top: 16px; max-width: 560px; border-radius: 12px; padding: 12px 14px;
+      border: 1px solid rgba(245,166,35,0.7); background: rgba(245,166,35,0.14); backdrop-filter: blur(18px);
+      display: flex; gap: 10px; align-items: flex-start;
+      transform: translateY(16px); opacity: 0; transition: 400ms cubic-bezier(0.22, 1.4, 0.4, 1);
+    }
+    .alert-bar.show { transform: translateY(0); opacity: 1; }
+    .alert-bar b { color: #ffd285; }
+    .alert-bar p { margin: 0; font-size: 13px; color: var(--text-secondary); }
+
+    .forecast-list { padding: 4px 14px 14px; display: grid; gap: 8px; }
+    .day-row { display: grid; grid-template-columns: 40px 22px 1fr 34px 34px; align-items: center; gap: 8px; font-family: "DM Mono", monospace; font-size: 11px; color: var(--text-secondary); padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .bar { height: 7px; border-radius: 999px; background: rgba(255,255,255,0.09); overflow: hidden; }
+    .bar > i { display: block; height: 100%; width: 50%; background: linear-gradient(90deg, rgba(77,166,255,0.7), rgba(255,255,255,0.9)); border-radius: inherit; }
+    .high { color: var(--text-primary); }
+
+    .context-card { position: relative; min-height: 202px; padding-bottom: 12px; }
+    #zone-map { display: none; width: calc(100% - 24px); margin: 8px 12px 0; height: 170px; border-radius: 12px; background: rgba(8,10,12,0.4); border: 1px solid rgba(255,255,255,0.07); }
+    .hour-strip {
+      display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding: 8px 12px 10px;
+      mask-image: linear-gradient(to right, transparent, black 12px, black 94%, transparent);
+    }
+    .hour-strip::-webkit-scrollbar { display: none; }
+    .hour-item { flex: 0 0 70px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); padding: 10px 8px; text-align: center; }
+    .hour-item .t { font-family: "DM Mono", monospace; font-size: 10px; color: var(--text-muted); }
+    .hour-item .i { margin-top: 4px; font-size: 18px; }
+    .hour-item .v { margin-top: 4px; font-family: "DM Mono", monospace; font-size: 12px; }
+
+    .stats-grid { padding: 8px 14px 16px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .stat-box { padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); }
+    .stat-box .k { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--text-muted); text-transform: uppercase; }
+    .stat-box .v { margin-top: 7px; font-family: "DM Mono", monospace; font-size: 19px; color: var(--text-primary); }
+
+    .fade-layer { transition: opacity 800ms ease; }
+    .fade-layer.fading { opacity: 0.12; }
+
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center;
+      background: rgba(7, 10, 14, 0.54); backdrop-filter: blur(12px);
+      opacity: 0; transition: opacity 250ms ease;
+    }
+    .modal-overlay.show { display: flex; opacity: 1; }
+    .modal {
+      width: min(600px, 92vw); max-height: 84vh; overflow: auto; border-radius: 20px;
+      background: rgba(12, 16, 21, 0.78); border: 1px solid rgba(255,255,255,0.14);
+      backdrop-filter: blur(24px); box-shadow: 0 30px 70px rgba(0,0,0,0.5);
+      transform: scale(0.96); transition: transform 250ms ease;
+    }
+    .modal-overlay.show .modal { transform: scale(1); }
+    .modal-head { padding: 18px 20px 4px; display: flex; align-items: center; justify-content: space-between; }
+    .modal h2 { margin: 0; font-family: "Cormorant Garamond", serif; font-weight: 300; font-size: 46px; }
+    .close-btn { border: 0; width: 32px; height: 32px; border-radius: 8px; color: var(--text-secondary); background: rgba(255,255,255,0.07); font-size: 20px; }
+
+    .timeline { padding: 4px 20px 22px; display: grid; gap: 14px; }
+    .wf-step { display: grid; grid-template-columns: 38px 1fr; gap: 14px; position: relative; }
+    .wf-left { position: relative; display: flex; justify-content: center; }
+    .wf-node {
+      width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.34); color: var(--text-secondary);
+      display: flex; align-items: center; justify-content: center; font-family: "DM Mono", monospace; font-size: 12px; background: rgba(255,255,255,0.05);
+    }
+    .wf-step.active .wf-node { border-color: var(--green); color: #fff; box-shadow: 0 0 0 6px rgba(0,201,81,0.17); animation: pulse 1.2s infinite; }
+    .wf-step.done .wf-node { background: var(--green); border-color: var(--green); color: #062911; }
+    .wf-step.done .wf-node::before { content: "✓"; font-weight: 700; font-size: 14px; }
+    .wf-step.done .wf-node span, .wf-step.active .wf-node span { display: none; }
+    .connector {
+      position: absolute; top: 28px; left: 18px; width: 2px; height: calc(100% + 14px); background: rgba(255,255,255,0.12); overflow: hidden;
+    }
+    .connector i { position: absolute; inset: auto 0 100% 0; background: var(--green); transition: 500ms ease; }
+    .wf-step.done .connector i { inset: 0 0 0 0; }
+    .wf-content h4 { margin: 0; font-size: 15px; font-weight: 500; }
+    .wf-content p { margin: 6px 0 0; font-family: "DM Mono", monospace; font-size: 11px; color: var(--text-muted); line-height: 1.44; }
+    .payload {
+      margin-top: 10px; font-family: "DM Mono", monospace; font-size: 11px; line-height: 1.5;
+      border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(8,10,14,0.72); padding: 10px;
+      display: none;
+    }
+    .wf-step.active .payload, .wf-step.done .payload { display: block; }
+    .k { color: var(--blue); } .s { color: #ffc170; } .v { color: #7df5a6; }
+    .chips { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { border-radius: 999px; padding: 6px 10px; border: 1px solid rgba(255,255,255,0.2); color: var(--text-muted); font-family: "DM Mono", monospace; font-size: 10px; transition: 280ms ease; }
+    .chip.lit { color: #fff; border-color: rgba(0,201,81,0.7); box-shadow: 0 0 12px rgba(0,201,81,0.3); background: rgba(0,201,81,0.12); }
+    .showcase {
+      margin-top: 10px; padding: 11px; border-radius: 10px; border: 1px solid rgba(0,201,81,0.7); background: rgba(0,201,81,0.12);
+      font-size: 13px; display: none;
+    }
+    .showcase small { display: block; margin-top: 4px; font-family: "DM Mono", monospace; color: var(--text-secondary); }
+    .resolve-wrap { padding: 4px 20px 22px; display: none; }
+    .resolve-btn { width: 100%; border: 0; border-radius: 12px; padding: 13px 12px; background: var(--green); color: #042410; font-weight: 700; }
+
+    @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.74; } }
+    @keyframes pulseRed { 0%,100% { box-shadow: 0 0 0 0 rgba(255,77,77,0.45);} 70% { box-shadow: 0 0 0 8px rgba(255,77,77,0);} }
+    @keyframes bob { 0%,100% { transform: translateY(0px);} 50% { transform: translateY(-3px);} }
+  </style>
+</head>
+<body>
+  <canvas id="atmosphere-canvas"></canvas>
+  <div id="grading"></div>
+  <div id="fog-wash"></div>
+
+  <header class="topbar">
+    <div class="brand"><span class="logo-mark"></span> <span>ServiceNow · Weather Intelligence</span></div>
+    <div class="top-right">
+      <div class="live-pill"><span class="pulse-dot"></span> LIVE</div>
+      <div id="clock">00:00:00</div>
+    </div>
+  </header>
+
+  <main class="app fade-layer" id="appLayer">
+    <section class="col">
+      <article class="glass">
+        <div class="card-title">City Selector</div>
+        <div class="city-list" id="cityList"></div>
+      </article>
+      <article class="glass">
+        <div class="card-title">ServiceNow Agentic Status</div>
+        <div class="status-panel">
+          <div class="status-head"><span class="status-orb" id="statusOrb"></span><span id="statusLabel">All clear</span></div>
+          <h3 id="statusHeadline"></h3>
+          <p id="statusBody"></p>
+          <div class="agent-btn-wrap"><button class="agent-btn" id="triggerBtn">Trigger Agentic Response</button></div>
+          <div class="mini-steps" id="miniSteps"></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="col center-wrap">
+      <div class="hero">
+        <div class="hero-city" id="heroCity"></div>
+        <div class="hero-temp" id="heroTemp"></div>
+        <div class="hero-cond" id="heroCond"></div>
+        <div class="micro-stats" id="microStats"></div>
+        <div class="alert-bar" id="alertBar"><div>⚠</div><div><b>Disruption detected</b><p id="alertText"></p></div></div>
+      </div>
+    </section>
+
+    <section class="col">
+      <article class="glass">
+        <div class="card-title">7 Day Forecast</div>
+        <div class="forecast-list" id="forecastList"></div>
+      </article>
+      <article class="glass context-card">
+        <div class="card-title" id="contextTitle">Operational Context</div>
+        <canvas id="zone-map" width="520" height="320"></canvas>
+        <div class="hour-strip" id="hourStrip"></div>
+      </article>
+      <article class="glass">
+        <div class="card-title">Weather Stats</div>
+        <div class="stats-grid" id="statsGrid"></div>
+      </article>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Agentic Response Executing</h2>
+        <button class="close-btn" id="closeModal">×</button>
+      </div>
+      <div class="timeline" id="timeline"></div>
+      <div class="resolve-wrap" id="resolveWrap"><button class="resolve-btn" id="resolveBtn">Resolve Workflow</button></div>
+    </div>
+  </div>
+
+  <script>
+    // ===== City Data =====
+    const CITIES = {
+      london: {
+        name: "London", temp: 9, condition: "Severe thunderstorm", icon: "⛈",
+        weather: "storm", disruption: "red",
+        disruptionText: "Central line interchange and riverside access heavily impacted by severe thunderstorm activity.",
+        sky: ["#060709", "#0d0f12", "#1a1f28"], accent: "#ff4d4d", grading: "rgba(38, 8, 10, 0.36)",
+        micro: { Wind: "38 km/h", Humidity: "89%", Visibility: "1.4 km", "Feels like": "6°" },
+        stats: { "Wind speed": "38 km/h", Humidity: "89%", Pressure: "986 hPa", "UV Index": "0.4" },
+        forecast: [["Fri","⛈",7,10],["Sat","🌧",6,9],["Sun","🌧",8,11],["Mon","☁",9,12],["Tue","🌧",7,10],["Wed","⛈",8,11],["Thu","☁",9,13]],
+        hours: [["12:00","⛈",9],["13:00","⛈",8],["14:00","🌧",8],["15:00","🌧",9],["16:00","⛈",9],["17:00","🌧",8],["18:00","🌧",8]],
+        statusHeadline: "Severe weather disruption active",
+        statusBody: "Agentic operations are ready to rebalance workforce movement, notify impacted teams, and update site access immediately."
+      },
+      manchester: {
+        name: "Manchester", temp: 2, condition: "Heavy snowfall", icon: "❄",
+        weather: "snow", disruption: "red",
+        disruptionText: "North corridor transport and office ingress delayed by high-intensity snowfall and ice accumulation.",
+        sky: ["#0a0d10", "#151a1f", "#202732"], accent: "#9fb6d4", grading: "rgba(22, 32, 42, 0.33)",
+        micro: { Wind: "19 km/h", Humidity: "83%", Visibility: "2.1 km", "Feels like": "-1°" },
+        stats: { "Wind speed": "19 km/h", Humidity: "83%", Pressure: "1002 hPa", "UV Index": "0.8" },
+        forecast: [["Fri","❄",0,3],["Sat","❄",-1,2],["Sun","☁",1,4],["Mon","❄",0,3],["Tue","☁",2,5],["Wed","🌨",1,3],["Thu","☁",2,6]],
+        hours: [["12:00","❄",2],["13:00","❄",2],["14:00","🌨",1],["15:00","❄",1],["16:00","❄",1],["17:00","☁",2],["18:00","☁",2]],
+        statusHeadline: "Snow event impacting workforce routes",
+        statusBody: "The orchestration layer is evaluating safe office allocation and targeted communications for affected postcode clusters."
+      },
+      edinburgh: {
+        name: "Edinburgh", temp: 7, condition: "Dense fog", icon: "🌫",
+        weather: "fog", disruption: "amber",
+        disruptionText: "Visibility constraints around city centre campuses may delay arrivals and field response operations.",
+        sky: ["#434a52", "#5e646d", "#7f8791"], accent: "#f5a623", grading: "rgba(54, 58, 62, 0.42)",
+        micro: { Wind: "12 km/h", Humidity: "95%", Visibility: "0.9 km", "Feels like": "5°" },
+        stats: { "Wind speed": "12 km/h", Humidity: "95%", Pressure: "1009 hPa", "UV Index": "0.3" },
+        forecast: [["Fri","🌫",6,8],["Sat","🌫",5,8],["Sun","☁",6,10],["Mon","🌫",7,9],["Tue","☁",8,11],["Wed","🌫",6,8],["Thu","☁",7,10]],
+        hours: [["12:00","🌫",7],["13:00","🌫",7],["14:00","☁",8],["15:00","🌫",7],["16:00","🌫",7],["17:00","☁",8],["18:00","☁",8]],
+        statusHeadline: "Reduced-visibility advisory in effect",
+        statusBody: "Partial disruption protocols are active. Teams are being routed to low-risk locations while monitoring continues."
+      },
+      birmingham: {
+        name: "Birmingham", temp: 13, condition: "Partly cloudy", icon: "⛅",
+        weather: "cloudy", disruption: null,
+        disruptionText: "",
+        sky: ["#273341", "#3a4b5f", "#6f8193"], accent: "#7fb2e1", grading: "rgba(28, 44, 60, 0.25)",
+        micro: { Wind: "10 km/h", Humidity: "61%", Visibility: "9.5 km", "Feels like": "14°" },
+        stats: { "Wind speed": "10 km/h", Humidity: "61%", Pressure: "1018 hPa", "UV Index": "2.8" },
+        forecast: [["Fri","⛅",11,14],["Sat","☁",10,15],["Sun","☀",12,17],["Mon","⛅",11,16],["Tue","☁",10,14],["Wed","☀",12,18],["Thu","⛅",12,17]],
+        hours: [["12:00","⛅",13],["13:00","☁",14],["14:00","☀",15],["15:00","⛅",15],["16:00","☁",14],["17:00","⛅",14],["18:00","☁",13]],
+        statusHeadline: "All locations operating normally",
+        statusBody: "No disruption detected. Environmental model indicates stable commuting conditions for all monitored office zones."
+      },
+      bristol: {
+        name: "Bristol", temp: 11, condition: "Light rain", icon: "🌧",
+        weather: "rain", disruption: null,
+        disruptionText: "",
+        sky: ["#152433", "#27425e", "#4f7392"], accent: "#8eb6dd", grading: "rgba(26, 46, 70, 0.31)",
+        micro: { Wind: "16 km/h", Humidity: "77%", Visibility: "6.3 km", "Feels like": "9°" },
+        stats: { "Wind speed": "16 km/h", Humidity: "77%", Pressure: "1006 hPa", "UV Index": "1.1" },
+        forecast: [["Fri","🌧",9,12],["Sat","🌧",8,11],["Sun","☁",9,13],["Mon","🌦",10,14],["Tue","☁",10,15],["Wed","🌧",9,12],["Thu","⛅",10,14]],
+        hours: [["12:00","🌧",11],["13:00","🌧",11],["14:00","☁",12],["15:00","🌦",12],["16:00","🌧",11],["17:00","☁",11],["18:00","☁",10]],
+        statusHeadline: "Monitoring light precipitation only",
+        statusBody: "Network remains healthy. Agentic workflows are on standby while local rain activity remains within tolerance."
+      }
+    };
+
+    const CITY_ORDER = ["london", "manchester", "edinburgh", "birmingham", "bristol"];
+    let activeCityKey = "london";
+    let transition = null;
+    let miniWorkflowTimer = null;
+
+    const canvas = document.getElementById("atmosphere-canvas");
+    const ctx = canvas.getContext("2d");
+    let w = window.innerWidth, h = window.innerHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = w * dpr; canvas.height = h * dpr; ctx.scale(dpr, dpr);
+
+    const state = {
+      bgFrom: CITIES[activeCityKey].sky.map(hexToRgb),
+      bgTo: CITIES[activeCityKey].sky.map(hexToRgb),
+      bgCurrent: CITIES[activeCityKey].sky.map(hexToRgb),
+      rain: [], snow: [], fog: [], clouds: [],
+      lightningAt: 0, nextLightning: performance.now() + randomRange(8000, 12000),
+      fogStrength: 0
+    };
+
+    // ===== Helpers =====
+    function randomRange(a, b) { return a + Math.random() * (b - a); }
+    function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function hexToRgb(hex) {
+      const n = hex.replace("#", "");
+      return [parseInt(n.slice(0,2),16), parseInt(n.slice(2,4),16), parseInt(n.slice(4,6),16)];
+    }
+    function rgb(r, g, b, a = 1) { return `rgba(${r|0},${g|0},${b|0},${a})`; }
+    function nowTime() { return performance.now(); }
+
+    // ===== Particle Systems =====
+    function buildParticles(condition) {
+      state.rain = [];
+      state.snow = [];
+      state.fog = [];
+      state.clouds = [];
+      const density = Math.max(1, (w * h) / (1920 * 1080));
+      const rainCount = Math.floor((condition === "storm" ? 900 : condition === "rain" ? 360 : 80) * density);
+      const snowCount = Math.floor((condition === "snow" ? 480 : 70) * density);
+      const fogCount = Math.floor((condition === "fog" ? 12 : condition === "cloudy" ? 7 : 5) * density);
+      const cloudCount = Math.floor((condition === "storm" ? 10 : condition === "cloudy" ? 8 : 6) * density);
+
+      for (let i = 0; i < rainCount; i++) {
+        state.rain.push({ x: Math.random() * w, y: Math.random() * h, l: randomRange(12, 26), s: randomRange(540, 980), a: condition === "storm" ? 0.95 : 0.65 });
+      }
+      for (let i = 0; i < snowCount; i++) {
+        const z = randomRange(0.3, 1.1);
+        state.snow.push({ x: Math.random() * w, y: Math.random() * h, r: randomRange(1, 3.8) * z, sx: randomRange(-16, 16) * z, sy: randomRange(12, 52) * z, z });
+      }
+      for (let i = 0; i < fogCount; i++) {
+        const z = randomRange(0.5, 1.4);
+        state.fog.push({ x: randomRange(-w * 0.2, w * 1.2), y: randomRange(h * 0.12, h * 0.95), r: randomRange(160, 360) * z, vx: randomRange(6, 18) / z, alpha: randomRange(0.07, 0.18) / z });
+      }
+      for (let i = 0; i < cloudCount; i++) {
+        state.clouds.push({ x: randomRange(-w * 0.4, w * 1.2), y: randomRange(20, h * 0.56), r: randomRange(150, 460), vx: randomRange(4, 14), alpha: randomRange(0.04, 0.16) });
+      }
+    }
+
+    function drawSky(dt, city) {
+      const c1 = state.bgCurrent[0], c2 = state.bgCurrent[1], c3 = state.bgCurrent[2];
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, rgb(c1[0], c1[1], c1[2], 1));
+      grad.addColorStop(0.54, rgb(c2[0], c2[1], c2[2], 1));
+      grad.addColorStop(1, rgb(c3[0], c3[1], c3[2], 1));
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      for (const cloud of state.clouds) {
+        cloud.x += cloud.vx * dt;
+        if (cloud.x - cloud.r > w + 40) cloud.x = -cloud.r - 60;
+        const g = ctx.createRadialGradient(cloud.x, cloud.y, cloud.r * 0.15, cloud.x, cloud.y, cloud.r);
+        g.addColorStop(0, `rgba(255,255,255,${cloud.alpha})`);
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cloud.x, cloud.y, cloud.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (city.weather === "storm") {
+        if (nowTime() > state.nextLightning) {
+          state.lightningAt = nowTime();
+          state.nextLightning = nowTime() + randomRange(8000, 12000);
+        }
+        const since = nowTime() - state.lightningAt;
+        if (since >= 0 && since < 180) {
+          const p = 1 - since / 180;
+          ctx.fillStyle = `rgba(215,228,255,${0.35 * p})`;
+          ctx.fillRect(0, 0, w, h);
+        }
+      }
+    }
+
+    function drawRain(dt, city) {
+      if (city.weather !== "storm" && city.weather !== "rain") return;
+      const angle = city.weather === "storm" ? 0.4 : 0.28;
+      ctx.lineCap = "round";
+      for (const p of state.rain) {
+        p.y += p.s * dt;
+        p.x += p.s * dt * angle;
+        if (p.y > h + 30 || p.x > w + 30) { p.y = -30; p.x = Math.random() * w * 0.8; }
+        ctx.strokeStyle = `rgba(200,220,255,${p.a})`;
+        ctx.lineWidth = city.weather === "storm" ? 1.4 : 1.0;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x - p.l * angle, p.y - p.l);
+        ctx.stroke();
+      }
+    }
+
+    function drawSnow(dt, city) {
+      if (city.weather !== "snow") return;
+      for (const p of state.snow) {
+        p.y += p.sy * dt;
+        p.x += (Math.sin((p.y + p.r) * 0.012) * 24 + p.sx) * dt;
+        if (p.y > h + 10) { p.y = -10; p.x = Math.random() * w; }
+        if (p.x > w + 10) p.x = -10;
+        if (p.x < -10) p.x = w + 10;
+        ctx.fillStyle = `rgba(240,245,255,${clamp(0.45 + p.z * 0.4, 0, 1)})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawFog(dt, city) {
+      const target = city.weather === "fog" ? 0.42 : city.weather === "cloudy" ? 0.18 : 0.06;
+      state.fogStrength = lerp(state.fogStrength, target, 0.02);
+      for (const p of state.fog) {
+        p.x += p.vx * dt;
+        if (p.x - p.r > w + 20) p.x = -p.r - 30;
+        const g = ctx.createRadialGradient(p.x, p.y, p.r * 0.2, p.x, p.y, p.r);
+        g.addColorStop(0, `rgba(210,220,230,${p.alpha * (1 + state.fogStrength)})`);
+        g.addColorStop(1, "rgba(210,220,230,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // ===== UI Rendering =====
+    const cityList = document.getElementById("cityList");
+    const heroCity = document.getElementById("heroCity");
+    const heroTemp = document.getElementById("heroTemp");
+    const heroCond = document.getElementById("heroCond");
+    const microStats = document.getElementById("microStats");
+    const alertBar = document.getElementById("alertBar");
+    const alertText = document.getElementById("alertText");
+    const statusOrb = document.getElementById("statusOrb");
+    const statusLabel = document.getElementById("statusLabel");
+    const statusHeadline = document.getElementById("statusHeadline");
+    const statusBody = document.getElementById("statusBody");
+    const triggerBtn = document.getElementById("triggerBtn");
+    const miniSteps = document.getElementById("miniSteps");
+    const forecastList = document.getElementById("forecastList");
+    const contextTitle = document.getElementById("contextTitle");
+    const zoneMap = document.getElementById("zone-map");
+    const hourStrip = document.getElementById("hourStrip");
+    const statsGrid = document.getElementById("statsGrid");
+    const appLayer = document.getElementById("appLayer");
+    const grading = document.getElementById("grading");
+    const fogWash = document.getElementById("fog-wash");
+
+    function renderCityRows() {
+      cityList.innerHTML = "";
+      CITY_ORDER.forEach((key) => {
+        const c = CITIES[key];
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = `city-row ${key === activeCityKey ? "active" : ""}`;
+        row.innerHTML = `
+          <div class="icon">${c.icon}</div>
+          <div class="city-meta"><h4>${c.name}</h4><p>${c.condition}</p></div>
+          <div class="city-temp">${c.temp}&deg;</div>
+          ${c.disruption ? '<div class="alert-pill">Alert</div>' : ""}
+        `;
+        row.addEventListener("click", () => switchCity(key));
+        cityList.appendChild(row);
+      });
+    }
+
+    function renderMain(city) {
+      heroCity.textContent = city.name.toUpperCase();
+      heroTemp.innerHTML = `${city.temp}&deg;`;
+      heroCond.textContent = city.condition;
+      microStats.innerHTML = Object.entries(city.micro).map(([k, v]) =>
+        `<div class="micro"><div class="k">${k}</div><div class="v">${v}</div></div>`
+      ).join("");
+
+      const disrupted = !!city.disruption;
+      alertText.textContent = city.disruptionText || "";
+      alertBar.classList.toggle("show", disrupted);
+      triggerBtn.classList.toggle("visible", disrupted);
+
+      statusOrb.classList.toggle("disrupted", disrupted);
+      statusLabel.textContent = disrupted ? "Disruption detected" : "All clear";
+      statusHeadline.textContent = city.statusHeadline;
+      statusBody.textContent = city.statusBody;
+      if (!disrupted) miniSteps.innerHTML = "";
+
+      forecastList.innerHTML = city.forecast.map(([d, icon, lo, hi]) => {
+        const pct = clamp((hi - lo) / 12, 0.2, 1);
+        return `<div class="day-row"><div>${d}</div><div>${icon}</div><div class="bar"><i style="width:${Math.round(pct*100)}%"></i></div><div>${lo}&deg;</div><div class="high">${hi}&deg;</div></div>`;
+      }).join("");
+
+      statsGrid.innerHTML = Object.entries(city.stats).map(([k, v]) =>
+        `<div class="stat-box"><div class="k">${k}</div><div class="v">${v}</div></div>`
+      ).join("");
+
+      if (disrupted) {
+        contextTitle.textContent = "Live Zone Map";
+        zoneMap.style.display = "block";
+        hourStrip.style.display = "none";
+      } else {
+        contextTitle.textContent = "Hourly Forecast";
+        zoneMap.style.display = "none";
+        hourStrip.style.display = "flex";
+        hourStrip.innerHTML = city.hours.map(([t, i, v]) =>
+          `<div class="hour-item"><div class="t">${t}</div><div class="i">${i}</div><div class="v">${v}&deg;</div></div>`
+        ).join("");
+      }
+
+      document.documentElement.style.setProperty("--accent", city.accent);
+      grading.style.background = `radial-gradient(circle at 75% 15%, transparent 0%, rgba(0,0,0,0.28) 72%), ${city.grading}`;
+      fogWash.style.background = `rgba(220,225,235,${city.weather === "fog" ? 0.12 : 0})`;
+    }
+
+    function switchCity(nextKey) {
+      if (nextKey === activeCityKey) return;
+      const prev = CITIES[activeCityKey];
+      const next = CITIES[nextKey];
+      appLayer.classList.add("fading");
+      setTimeout(() => appLayer.classList.remove("fading"), 380);
+      activeCityKey = nextKey;
+      renderCityRows();
+      renderMain(next);
+      buildParticles(next.weather);
+
+      transition = {
+        start: nowTime(),
+        duration: 2000,
+        from: prev.sky.map(hexToRgb),
+        to: next.sky.map(hexToRgb),
+        dark: [[8,10,12],[10,12,14],[13,16,20]]
+      };
+      if (miniWorkflowTimer) clearInterval(miniWorkflowTimer);
+      miniSteps.innerHTML = "";
+    }
+
+    // ===== Zone Map Canvas =====
+    const zctx = zoneMap.getContext("2d");
+    let pulse = 0;
+    function drawZoneMap(dt) {
+      if (zoneMap.style.display === "none") return;
+      pulse += dt * 3.4;
+      const W = zoneMap.width, H = zoneMap.height;
+      zctx.clearRect(0, 0, W, H);
+      zctx.fillStyle = "rgba(10,13,18,0.75)";
+      zctx.fillRect(0, 0, W, H);
+
+      const zones = [
+        { x: 40, y: 38, w: 130, h: 90, c: "rgba(255,77,77,0.58)" },
+        { x: 176, y: 48, w: 140, h: 92, c: "rgba(245,166,35,0.52)" },
+        { x: 324, y: 44, w: 150, h: 94, c: "rgba(0,201,81,0.45)" },
+        { x: 54, y: 145, w: 140, h: 110, c: "rgba(245,166,35,0.45)" },
+        { x: 202, y: 150, w: 128, h: 106, c: "rgba(255,77,77,0.56)" },
+        { x: 338, y: 150, w: 132, h: 104, c: "rgba(0,201,81,0.44)" }
+      ];
+
+      zctx.strokeStyle = "rgba(255,255,255,0.18)";
+      zctx.lineWidth = 1;
+      zones.forEach((z) => {
+        zctx.fillStyle = z.c;
+        zctx.fillRect(z.x, z.y, z.w, z.h);
+        zctx.strokeRect(z.x, z.y, z.w, z.h);
+      });
+
+      zctx.beginPath();
+      zctx.moveTo(36, 168);
+      zctx.bezierCurveTo(140, 126, 248, 206, 370, 156);
+      zctx.bezierCurveTo(410, 140, 442, 148, 488, 174);
+      zctx.strokeStyle = "rgba(77,166,255,0.85)";
+      zctx.lineWidth = 3;
+      zctx.stroke();
+
+      const dots = [[110,96],[142,182],[234,86],[258,198],[386,96],[420,214]];
+      dots.forEach(([x, y]) => {
+        const r = 4 + Math.sin(pulse + x * 0.03) * 1.6;
+        zctx.beginPath();
+        zctx.arc(x, y, r, 0, Math.PI * 2);
+        zctx.fillStyle = "rgba(245,166,35,0.95)";
+        zctx.fill();
+        zctx.beginPath();
+        zctx.arc(x, y, r + 7, 0, Math.PI * 2);
+        zctx.strokeStyle = "rgba(245,166,35,0.22)";
+        zctx.stroke();
+      });
+    }
+
+    // ===== Workflow Modal =====
+    const modalOverlay = document.getElementById("modalOverlay");
+    const closeModal = document.getElementById("closeModal");
+    const resolveBtn = document.getElementById("resolveBtn");
+    const resolveWrap = document.getElementById("resolveWrap");
+    const timeline = document.getElementById("timeline");
+
+    const WORKFLOW_STEPS = [
+      ["Event detection", "Incoming severe weather signal validated for selected city.", `{ <span class="k">city</span>: <span class="s">"${CITIES[activeCityKey].name}"</span>, <span class="k">severity</span>: <span class="s">"high"</span> }`],
+      ["Impact analysis", "Employee commute and office occupancy impact model running.", `{ <span class="k">affectedEmployees</span>: <span class="v">6</span>, <span class="k">riskScore</span>: <span class="v">0.87</span> }`],
+      ["Notifications sent", "Targeted briefing alerts dispatched to impacted employees.", `{ <span class="k">channels</span>: [<span class="s">"sms"</span>, <span class="s">"email"</span>], <span class="k">status</span>: <span class="s">"delivered"</span> }`],
+      ["Offices reassigned", "Nearest safe offices allocated using route viability matrix.", `{ <span class="k">reassignedOffice</span>: <span class="s">"Bishopsgate"</span>, <span class="k">policy</span>: <span class="s">"nearest-safe"</span> }`],
+      ["Badge access updated", "Identity platform receives temporary access rules.", `{ <span class="k">system</span>: <span class="s">"physical-access"</span>, <span class="k">sync</span>: <span class="s">"in-progress"</span> }`],
+      ["Executive confirmation", "Operational continuity now aligned across all systems.", `{ <span class="k">workflow</span>: <span class="s">"complete"</span>, <span class="k">auditId</span>: <span class="s">"WF-2048-A"</span> }`]
+    ];
+    const stepDelays = [0, 1800, 3600, 5200, 7000, 9000];
+    const chipNames = ["Sarah R", "James M", "Aisha L", "Tom K", "Priya W", "David C"];
+    let wfTimers = [];
+
+    function clearWfTimers() { wfTimers.forEach((t) => clearTimeout(t)); wfTimers = []; }
+
+    function buildWorkflow() {
+      timeline.innerHTML = "";
+      resolveWrap.style.display = "none";
+      WORKFLOW_STEPS.forEach((s, i) => {
+        const row = document.createElement("div");
+        row.className = "wf-step";
+        row.id = `wf-${i}`;
+        row.innerHTML = `
+          <div class="wf-left">
+            <div class="wf-node"><span>${i + 1}</span></div>
+            ${i < WORKFLOW_STEPS.length - 1 ? '<div class="connector"><i></i></div>' : ""}
+          </div>
+          <div class="wf-content">
+            <h4>${s[0]}</h4>
+            <p>${s[1]}</p>
+            <div class="payload">${s[2]}</div>
+            ${i === 1 ? '<div class="chips" id="chips"></div>' : ""}
+            ${i === 5 ? '<div class="showcase" id="showcase">🔒 <b>Physical Prototype Door — Access Updated</b><small>Badge permissions synced · New office: GRANTED</small></div>' : ""}
+          </div>
+        `;
+        timeline.appendChild(row);
+      });
+      const chipsWrap = document.getElementById("chips");
+      if (chipsWrap) chipsWrap.innerHTML = chipNames.map((n) => `<span class="chip">${n}</span>`).join("");
+    }
+
+    function runWorkflow() {
+      clearWfTimers();
+      buildWorkflow();
+      miniSteps.innerHTML = ["Event detection","Impact analysis","Notifications sent","Offices reassigned","Badge access updated"]
+        .map((s) => `<div class="mini-step"><span class="mini-dot"></span>${s}</div>`).join("");
+      const miniRows = [...miniSteps.querySelectorAll(".mini-step")];
+
+      stepDelays.forEach((delay, i) => {
+        wfTimers.push(setTimeout(() => {
+          const el = document.getElementById(`wf-${i}`);
+          if (!el) return;
+          el.classList.add("active");
+          if (i < miniRows.length) miniRows[i].classList.add("active");
+          if (i === 1) {
+            const chips = [...document.querySelectorAll(".chip")];
+            chips.forEach((c, idx) => {
+              wfTimers.push(setTimeout(() => c.classList.add("lit"), idx * 220));
+            });
+          }
+        }, delay));
+        wfTimers.push(setTimeout(() => {
+          const el = document.getElementById(`wf-${i}`);
+          if (!el) return;
+          el.classList.remove("active");
+          el.classList.add("done");
+          if (i < miniRows.length) { miniRows[i].classList.remove("active"); miniRows[i].classList.add("done"); }
+          if (i === 5) {
+            const showcase = document.getElementById("showcase");
+            if (showcase) showcase.style.display = "block";
+            resolveWrap.style.display = "block";
+          }
+        }, delay + 1400));
+      });
+    }
+
+
+    // ===== ServiceNow Integration =====
+    const SERVICENOW_WEBHOOK_URL = 'https://demoalectriallwfze130810.service-now.com/api/amazon/weather_alert_api/receive';
+
+    function sendAlertToServiceNow(cityData) {
+      const alertData = {
+        event: cityData.name + ' Weather Disruption',
+        severity: cityData.disruption === 'red' ? 'critical' : 'high',
+        warning_level: cityData.disruption === 'red' ? 'Red (Danger to life)' : 'Amber (Be prepared)',
+        location: cityData.name + ', UK',
+        conditions: cityData.condition,
+        impact: cityData.disruptionText,
+        affected_employees: cityData.disruption === 'red' ? 247 : 89,
+        offices_impacted: [cityData.name],
+        timestamp: new Date().toISOString(),
+        auto_triggered: false,
+        source: 'ServiceNow Weather Intelligence Portal'
+      };
+
+      console.log('📡 Sending alert to ServiceNow...', alertData);
+
+      // Update status in UI
+      const statusBody = document.getElementById('statusBody');
+      if (statusBody) statusBody.textContent = 'Connecting to ServiceNow…';
+
+      fetch(SERVICENOW_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(alertData)
+      })
+      .then(response => {
+        console.log('✅ ServiceNow webhook called - Status:', response.status);
+        if (response.ok) return response.json();
+        throw new Error('ServiceNow returned: ' + response.status);
+      })
+      .then(data => {
+        console.log('✅ ServiceNow responded:', data);
+        if (statusBody) statusBody.textContent = 'Agentic workflow triggered in ServiceNow ✓';
+      })
+      .catch(error => {
+        console.error('❌ ServiceNow connection error:', error);
+        console.log('ℹ️  Check: CORS rule active? Flow published? Instance reachable?');
+        // Don't block the demo UI — workflow animation continues regardless
+      });
+    }
+
+    function openModal() {
+      modalOverlay.classList.add("show");
+      runWorkflow();
+      // Fire real ServiceNow webhook alongside the demo animation
+      const city = CITIES[activeCityKey];
+      if (city && city.disruption) {
+        sendAlertToServiceNow(city);
+      }
+    }
+    function closeWorkflow() {
+      modalOverlay.classList.remove("show");
+      clearWfTimers();
+    }
+
+    // ===== Clock =====
+    function tickClock() {
+      const d = new Date();
+      const parts = [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, "0"));
+      document.getElementById("clock").textContent = parts.join(":");
+    }
+
+    // ===== Main Animation Loop =====
+    let last = nowTime();
+    function animate() {
+      const t = nowTime();
+      const dt = clamp((t - last) / 1000, 0.001, 0.033);
+      last = t;
+
+      if (transition) {
+        const p = clamp((t - transition.start) / transition.duration, 0, 1);
+        const q = p < 0.5 ? p / 0.5 : (p - 0.5) / 0.5;
+        const a = p < 0.5 ? transition.from : transition.dark;
+        const b = p < 0.5 ? transition.dark : transition.to;
+        for (let i = 0; i < 3; i++) {
+          state.bgCurrent[i][0] = lerp(a[i][0], b[i][0], q);
+          state.bgCurrent[i][1] = lerp(a[i][1], b[i][1], q);
+          state.bgCurrent[i][2] = lerp(a[i][2], b[i][2], q);
+        }
+        if (p >= 1) transition = null;
+      } else {
+        const target = CITIES[activeCityKey].sky.map(hexToRgb);
+        for (let i = 0; i < 3; i++) {
+          state.bgCurrent[i][0] = lerp(state.bgCurrent[i][0], target[i][0], 0.02);
+          state.bgCurrent[i][1] = lerp(state.bgCurrent[i][1], target[i][1], 0.02);
+          state.bgCurrent[i][2] = lerp(state.bgCurrent[i][2], target[i][2], 0.02);
+        }
+      }
+
+      const city = CITIES[activeCityKey];
+      drawSky(dt, city);
+      drawRain(dt, city);
+      drawSnow(dt, city);
+      drawFog(dt, city);
+      drawZoneMap(dt);
+      requestAnimationFrame(animate);
+    }
+
+    // ===== Startup =====
+    function init() {
+      renderCityRows();
+      renderMain(CITIES[activeCityKey]);
+      buildParticles(CITIES[activeCityKey].weather);
+      tickClock();
+      setInterval(tickClock, 1000);
+      animate();
+    }
+
+    window.addEventListener("resize", () => {
+      w = window.innerWidth; h = window.innerHeight; dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = w * dpr; canvas.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      buildParticles(CITIES[activeCityKey].weather);
+    });
+    triggerBtn.addEventListener("click", openModal);
+    closeModal.addEventListener("click", closeWorkflow);
+    resolveBtn.addEventListener("click", closeWorkflow);
+    modalOverlay.addEventListener("click", (e) => { if (e.target === modalOverlay) closeWorkflow(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeWorkflow(); });
+
+    init();
+  </script>
+</body>
+</html>
