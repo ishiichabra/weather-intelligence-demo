@@ -212,7 +212,7 @@
   <div id="fog-wash"></div>
 
   <header class="topbar">
-    <div class="brand"><span class="logo-mark"></span> <span>ServiceNow · Weather Intelligence</span></div>
+    <div class="brand"><span class="logo-mark"></span> <span> · Weather Intelligence</span></div>
     <div class="top-right">
       <div class="live-pill"><span class="pulse-dot"></span> LIVE</div>
       <div id="clock">00:00:00</div>
@@ -226,7 +226,7 @@
         <div class="city-list" id="cityList"></div>
       </article>
       <article class="glass">
-        <div class="card-title">ServiceNow Agentic Status</div>
+        <div class="card-title"> Agentic Status</div>
         <div class="status-panel">
           <div class="status-head"><span class="status-orb" id="statusOrb"></span><span id="statusLabel">All clear</span></div>
           <h3 id="statusHeadline"></h3>
@@ -723,8 +723,8 @@
     }
 
 
-    // ===== ServiceNow Integration =====
-    const SERVICENOW_WEBHOOK_URL = 'https://demoalectriallwfze130810.service-now.com/api/amazon/weather_alert_api/receive';
+    // =====  Integration =====
+    const SERVICENOW_WEBHOOK_URL = 'https://demoalectriallwfze131186.service-now.com/api/snc/workplace_disruption_response';
 
     function sendAlertToServiceNow(cityData) {
       const alertData = {
