@@ -78,7 +78,7 @@
       border:1px solid var(--border); background:var(--bg-secondary);
       font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted);
     }
-    .live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); }
+    .live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:breathe 2s infinite; }
     #clock { font-size:12px; font-weight:500; color:var(--text-muted); font-variant-numeric:tabular-nums; letter-spacing:0.04em; }
 
     /* ── LAYOUT ── */
@@ -192,7 +192,7 @@
       white-space:nowrap;
     }
     .auto-badge.show { display:flex; }
-    .auto-dot { width:5px; height:5px; border-radius:50%; background:var(--green); }
+    .auto-dot { width:5px; height:5px; border-radius:50%; background:var(--green); animation:breathe 1.5s infinite; }
 
     /* Weather context — restrained but present */
     .weather-ctx {
@@ -220,6 +220,7 @@
       border-radius:var(--radius-md); padding:12px;
       background:var(--bg-secondary); border:1px solid var(--border);
       transition:border-color 400ms ease, background 400ms ease;
+      animation:slideIn 300ms ease;
     }
     .emp-card.disrupted { border-color:var(--red-bdr);   background:rgba(17,22,28,0.95); }
     .emp-card.resolved  { border-color:var(--green-bdr); background:rgba(17,22,28,0.95); }
@@ -255,6 +256,16 @@
     .val-granted { color:var(--green); }
     .val-revoked { color:var(--red);   }
     .val-pending { color:var(--text-muted); }
+
+    /* AI Reasoning panel */
+    .ai-reasoning {
+      margin-top:10px; padding:10px 12px;
+      border-radius:var(--radius-sm);
+      background:rgba(77,166,255,0.08); border:1px solid rgba(77,166,255,0.15);
+      font-size:10px; line-height:1.6; color:var(--text-secondary);
+      animation:slideIn 400ms ease 200ms backwards;
+    }
+    .ai-reasoning-title { font-size:9px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--blue); margin-bottom:6px; }
 
     /* Divider */
     .divider { height:1px; background:var(--border-subtle); margin:8px 0; }
@@ -379,6 +390,7 @@
     .fade-layer.fading { opacity:0.06; }
 
     @keyframes breathe { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+    @keyframes slideIn { from{transform:translateX(-8px);opacity:0;} to{transform:translateX(0);opacity:1;} }
   </style>
 </head>
 <body>
@@ -491,9 +503,8 @@
 
   <script>
   // ── CONFIGURATION ──
-  // To enable the live ServiceNow webhook, paste your Scripted REST API URL below.
-  // Leave as empty string "" to run in demo-only mode (safe to share).
   const SN_WEBHOOK_URL = "https://tombai.service-now.com/api/x_snc_routeready/workplace_disruption_api/receive";
+  const SN_STATUS_URL = "https://tombai.service-now.com/api/x_snc_routeready/workplace_disruption_api/status";
 
   // ── CITY DATA ──
   const CITIES = {
@@ -553,6 +564,100 @@
   ];
 
   let activeCityKey="london", trans=null, autoTimer=null, autoTick=null, wfFired=false;
+  let statusPollInterval=null, liveData=null;
+
+  // ── POLLING ──
+  function startStatusPolling(){
+    console.log("🔄 Starting /status polling...");
+    statusPollInterval=setInterval(()=>{
+      fetch(SN_STATUS_URL, {method:"GET", headers:{"Content-Type":"application/json"}})
+        .then(r=>r.json())
+        .then(data=>{
+          console.log("📊 Status data:", data);
+          liveData=data;
+          updateDecisionsFromLiveData(data);
+        })
+        .catch(e=>console.warn("⚠ Status poll error:", e));
+    }, 3000);
+  }
+
+  function stopStatusPolling(){
+    if(statusPollInterval){clearInterval(statusPollInterval); statusPollInterval=null;}
+  }
+
+  function updateDecisionsFromLiveData(data){
+    const decisionList=document.getElementById("decisionList");
+    if(!decisionList)return;
+
+    // Clear and rebuild from API data
+    decisionList.innerHTML="";
+    
+    const prioritized=data.prioritized_staff||[];
+    const excluded=data.excluded_staff||[];
+    const allAffected=[...prioritized, ...excluded];
+    
+    document.getElementById("impactCount").textContent=`${allAffected.length} affected`;
+
+    // Render prioritized staff
+    prioritized.forEach((emp,i)=>{
+      const card=createEmployeeCard(emp, i, "resolved", data.staffing_justification);
+      decisionList.appendChild(card);
+    });
+
+    // Render excluded staff (if any)
+    excluded.forEach((emp,i)=>{
+      const card=createEmployeeCard(emp, prioritized.length+i, "excluded", data.staffing_justification);
+      decisionList.appendChild(card);
+    });
+  }
+
+  function createEmployeeCard(emp, idx, mode, staffingJustification){
+    const el=document.createElement("div");
+    el.className="emp-card"+(mode==="resolved"?" resolved":mode==="excluded"?" disrupted":"");
+    el.id=`ec-${idx}`;
+
+    const name=emp.name||"Unknown";
+    const title=emp.title||"Staff";
+    const userId=emp.user_id||"N/A";
+    
+    // Generate deterministic color
+    const hue=((idx*137.5)%360);
+    const bg=`hsla(${hue},70%,50%,0.12)`;
+    const fg=`hsl(${hue},100%,60%)`;
+    
+    const init=name.split(" ").map(p=>p[0]).join("").toUpperCase().slice(0,2);
+
+    const reasonText=staffingJustification||"Optimal route reallocation";
+
+    const actionBlock = mode==="resolved" ? `
+      <div class="divider"></div>
+      <div class="action-block">
+        <div class="action-title">Decision Taken</div>
+        <div class="action-row"><span class="action-key">Status</span><span class="action-val val-granted">Reallocated</span></div>
+        <div class="action-row"><span class="action-key">User ID</span><span class="action-val">${userId}</span></div>
+      </div>
+      <div class="ai-reasoning">
+        <div class="ai-reasoning-title">🤖 AI Reasoning</div>
+        ${reasonText}
+      </div>` : `
+      <div class="divider"></div>
+      <div class="action-block">
+        <div class="action-title">Status</div>
+        <div class="action-row"><span class="action-key">Availability</span><span class="action-val val-pending">Not affected</span></div>
+      </div>`;
+
+    el.innerHTML=`
+      <div class="emp-top">
+        <div class="emp-avatar" style="background:${bg};color:${fg}">${init}</div>
+        <div>
+          <div class="emp-name">${name}</div>
+          <div class="emp-role">${title}</div>
+        </div>
+      </div>
+      ${actionBlock}
+    `;
+    return el;
+  }
 
   // ── CANVAS ENGINE ──
   const canvas=document.getElementById("atmos"), ctx=canvas.getContext("2d");
@@ -583,7 +688,6 @@
   }
 
   function drawFrame(dt,city){
-    // sky gradient
     const[c1,c2,c3]=S.bg;
     const g=ctx.createLinearGradient(0,0,0,H);
     g.addColorStop(0,rgb(c1[0],c1[1],c1[2]));
@@ -591,7 +695,6 @@
     g.addColorStop(1,rgb(c3[0],c3[1],c3[2]));
     ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
 
-    // clouds
     for(const c of S.clouds){
       c.x+=c.vx*dt; if(c.x-c.r>W+40)c.x=-c.r-40;
       const cg=ctx.createRadialGradient(c.x,c.y,c.r*.12,c.x,c.y,c.r);
@@ -600,14 +703,12 @@
       ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill();
     }
 
-    // lightning — more subtle
     if(city.weather==="storm"){
       if(perf()>S.ltNext){S.ltAt=perf();S.ltNext=perf()+rnd(10000,16000);}
       const age=perf()-S.ltAt;
       if(age>=0&&age<140){ctx.fillStyle=`rgba(200,218,255,${.2*(1-age/140)})`;ctx.fillRect(0,0,W,H);}
     }
 
-    // rain — slightly reduced opacity
     if(city.weather==="storm"||city.weather==="rain"){
       const ang=city.weather==="storm"?.38:.25;
       ctx.lineCap="round";
@@ -620,7 +721,6 @@
       }
     }
 
-    // snow
     if(city.weather==="snow"){
       for(const p of S.snow){
         p.y+=p.sy*dt; p.x+=(Math.sin((p.y+p.r)*.011)*20+p.sx)*dt;
@@ -631,7 +731,6 @@
       }
     }
 
-    // fog
     const fogTgt=city.weather==="fog"?.35:city.weather==="cloudy"?.14:.04;
     S.fogStr=lerp(S.fogStr,fogTgt,.018);
     for(const p of S.fog){
@@ -670,7 +769,6 @@
 
   // ── DECISION PANEL ──
   function renderDecisions(mode){
-    // mode: "idle" | "disrupted" | "resolved"
     decisionList.innerHTML="";
     impactCount.textContent = mode!=="idle" ? `${EMPLOYEES.length} affected` : "";
 
@@ -779,6 +877,7 @@
     if(key===activeCityKey)return;
     if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}
     if(autoTick){clearInterval(autoTick);autoTick=null;}
+    stopStatusPolling();
     autoBadge.classList.remove("show");
     wfFired=false;
     const prev=CITIES[activeCityKey], next=CITIES[key];
@@ -818,7 +917,6 @@
      `{ <span class="pl-k">grants</span>:<span class="pl-v">6</span>, <span class="pl-k">revocations</span>:<span class="pl-v">6</span>, <span class="pl-k">physical_lock</span>:<span class="pl-s">"LOCATION_AWARE→ACTIVE"</span> }`]
   ];
   const DELAYS=[0,1800,3600,5000,6800,8800];
-  const CHIP_NAMES=["Sarah R","James M","Aisha L","Tom K","Priya W","David C"];
   let wfTimers=[];
 
   function clearWfTimers(){wfTimers.forEach(t=>clearTimeout(t));wfTimers=[];}
@@ -842,8 +940,6 @@
         </div>`;
       timeline.appendChild(row);
     });
-    const cw=document.getElementById("chips");
-    if(cw)cw.innerHTML=CHIP_NAMES.map(n=>`<span class="chip">${n}</span>`).join("");
   }
 
   function runWorkflow(){
@@ -857,17 +953,13 @@
         const el=document.getElementById(`wf-${i}`);if(!el)return;
         el.classList.add("active");
         if(i<mrows.length)mrows[i].classList.add("active");
-        if(i===1){
-          const chips=[...document.querySelectorAll(".chip")];
-          chips.forEach((c,idx)=>wfTimers.push(setTimeout(()=>c.classList.add("lit"),idx*190)));
-        }
       },delay));
 
       wfTimers.push(setTimeout(()=>{
         const el=document.getElementById(`wf-${i}`);if(!el)return;
         el.classList.remove("active"); el.classList.add("done");
         if(i<mrows.length){mrows[i].classList.remove("active");mrows[i].classList.add("done");}
-        if(i===3){ renderDecisions("resolved"); }
+        if(i===3){ updateDecisionsFromLiveData(liveData||{}); }
         if(i===5){
           const sc=document.getElementById("showcase");
           if(sc)sc.style.display="block";
@@ -885,13 +977,14 @@
     modalOverlay.style.display="flex";
     requestAnimationFrame(()=>requestAnimationFrame(()=>modalOverlay.classList.add("show")));
     runWorkflow();
-    // ServiceNow webhook — URL configured separately, not hardcoded
+    startStatusPolling();
+
     const city=CITIES[activeCityKey];
-    if(city.disruption && typeof SN_WEBHOOK_URL !== "undefined" && SN_WEBHOOK_URL){
+    if(city.disruption && SN_WEBHOOK_URL){
       fetch(SN_WEBHOOK_URL,{
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({event:city.alertTitle,severity:city.disruption==="red"?"critical":"high",location:city.name,conditions:city.condition,affected_employees:6,timestamp:new Date().toISOString(),source:"ServiceNow Workplace Decision Intelligence"})
-      }).then(r=>console.log("✅ ServiceNow:",r.status)).catch(e=>console.warn("⚠ SN webhook:",e));
+      }).then(r=>console.log("✅ Webhook sent:",r.status)).catch(e=>console.warn("⚠ Webhook error:",e));
     }
   }
 
@@ -899,6 +992,7 @@
     modalOverlay.classList.remove("show");
     setTimeout(()=>{ if(!modalOverlay.classList.contains("show")) modalOverlay.style.display="none"; },240);
     clearWfTimers();
+    stopStatusPolling();
   }
 
   function resolveEvent(){
@@ -921,7 +1015,6 @@
       else{clearInterval(autoTick);autoTick=null;}
     },1000);
     autoTimer=setTimeout(()=>{
-      // Countdown ends — badge stays visible, waiting for presenter to trigger
       autoText.textContent="Disruption active — press Space or click to respond";
     },8000);
   }
