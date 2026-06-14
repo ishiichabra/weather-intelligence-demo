@@ -609,11 +609,14 @@
     if(d.staffing_justification){
       steps.push({type:"genai", name:"AIA ReAct Engine", status:"done", thought:d.staffing_justification});
     }
-    const resolved = d.state && String(d.state).toLowerCase()!=="open";
+    // The Update step's job is to WRITE the prioritised/excluded staff to the
+    // record. If those are present the write succeeded — mark it done regardless
+    // of the State field (State is a separate signal the agent may or may not set).
+    var staffWritten = (prioritized.length + excluded.length) > 0;
     steps.push({
       type:"tool", name:"Update Disruption Record",
-      status: resolved?"done":"running",
-      status_text: d.state || "Pending…"
+      status: staffWritten ? "done" : "running",
+      status_text: staffWritten ? "Record updated" : (d.state || "Pending…")
     });
     return steps;
   }
@@ -665,20 +668,18 @@
   function renderAccessFromData(d){
     const ba = Array.isArray(d.badge_assignments)?d.badge_assignments:[];
     if(ba.length){
-      const a=ba[0];
-      const name=a.name||a.employee||a.user||"Staff";
-      const loc =a.location||a.office||a.safe_office||d.office_affected||"—";
-      const status=a.status||"Granted";
-      const valid =a.valid_until||a.expiry||"";
+      const loc = ba[0].location||ba[0].office||ba[0].safe_office||d.office_affected||"alternative office";
       accessOrb.className="access-orb live";
-      accessStatusText.textContent="Badge scan processed";
+      accessStatusText.textContent=ba.length+" temporary badge"+(ba.length>1?"s":"")+" provisioned";
+      let rows = ba.slice(0,4).map(function(a){
+        const name=a.name||a.employee||a.user||"Staff";
+        return '<div class="scan-row"><span class="scan-key">'+esc(name)+'</span><span class="scan-val" style="color:var(--green)">Granted</span></div>';
+      }).join("");
+      if(ba.length>4) rows += '<div class="scan-row"><span class="scan-key">…and '+(ba.length-4)+' more</span><span class="scan-val"></span></div>';
       scanRecord.innerHTML=
-        '<div class="scan-row"><span class="scan-key">Employee</span><span class="scan-val">'+esc(name)+'</span></div>'+
-        '<div class="scan-row"><span class="scan-key">Location</span><span class="scan-val">'+esc(loc)+'</span></div>'+
-        '<div class="scan-row"><span class="scan-key">Time</span><span class="scan-val">'+timeStr()+'</span></div>'+
-        '<div class="access-decision">✅ Access '+esc(status)+'</div>'+
-        (valid?'<div class="access-reason">Reason: Temporary reassignment active · Valid until '+esc(valid)+'</div>'
-              :'<div class="access-reason">Reason: Temporary reassignment active</div>');
+        rows +
+        '<div class="access-decision">✅ Access granted · '+esc(loc)+'</div>'+
+        '<div class="access-reason">Temporary badge access to the alternative office, valid for the disruption</div>';
     } else {
       accessOrb.className="access-orb";
       accessStatusText.textContent="Awaiting badge provisioning";
