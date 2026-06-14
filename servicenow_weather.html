@@ -26,6 +26,7 @@
       --red:    #FF4D4D;
       --amber:  #F5A623;
       --blue:   #4DA6FF;
+      --violet: #A78BFA;
 
       --green-bg:  rgba(0,201,81,0.08);
       --green-bdr: rgba(0,201,81,0.20);
@@ -48,7 +49,6 @@
     #atmos { position:fixed; inset:0; z-index:0; opacity:0.55; }
     #grade { position:fixed; inset:0; z-index:1; pointer-events:none; transition:background 1200ms ease; }
     #fogw  { position:fixed; inset:0; z-index:2; pointer-events:none; mix-blend-mode:screen; transition:background 800ms ease; }
-    /* dark overlay to push weather behind UI */
     #darken { position:fixed; inset:0; z-index:3; pointer-events:none; background:linear-gradient(180deg,rgba(11,15,20,0.7) 0%,rgba(11,15,20,0.45) 50%,rgba(11,15,20,0.72) 100%); }
 
     /* ── TOPBAR ── */
@@ -161,13 +161,12 @@
     .mini-dot { width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,0.12); flex-shrink:0; transition:background 200ms; }
     .mini-step.active { color:var(--text-primary); }
     .mini-step.done   { color:var(--text-secondary); }
-    .mini-step.active .mini-dot { background:var(--green); }
-    .mini-step.done   .mini-dot { background:var(--green); opacity:0.6; }
+    .mini-step.active .mini-dot { background:var(--amber); }
+    .mini-step.done   .mini-dot { background:var(--green); opacity:0.7; }
 
     /* ── CENTRE ── */
     .centre-wrap { position:relative; }
 
-    /* Alert banner */
     .alert-banner {
       position:absolute; top:0; left:50%; transform:translateX(-50%) translateY(-4px);
       width:min(560px,94%); z-index:5;
@@ -182,7 +181,6 @@
     .alert-title { font-size:13px; font-weight:600; color:var(--amber); margin-bottom:2px; }
     .alert-desc  { font-size:11px; color:var(--text-secondary); }
 
-    /* Auto-trigger badge */
     .auto-badge {
       position:absolute; top:42px; left:50%; transform:translateX(-50%);
       display:none; align-items:center; gap:7px;
@@ -194,27 +192,17 @@
     .auto-badge.show { display:flex; }
     .auto-dot { width:5px; height:5px; border-radius:50%; background:var(--green); animation:breathe 1.5s infinite; }
 
-    /* Weather context — restrained but present */
-    .weather-ctx {
-      position:absolute; left:24px; bottom:20px; pointer-events:none;
-    }
-    .wc-location {
-      font-size:10px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase;
-      color:rgba(255,255,255,0.35); margin-bottom:4px;
-    }
-    .wc-temp {
-      font-size:clamp(72px,8vw,108px); font-weight:300; line-height:1;
-      color:rgba(255,255,255,0.72); letter-spacing:-0.04em;
-    }
-    .wc-condition {
-      font-size:16px; font-weight:300; color:rgba(255,255,255,0.45);
-      margin-top:4px; letter-spacing:0.01em;
-    }
+    .weather-ctx { position:absolute; left:24px; bottom:20px; pointer-events:none; }
+    .wc-location { font-size:10px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:4px; }
+    .wc-temp { font-size:clamp(72px,8vw,108px); font-weight:300; line-height:1; color:rgba(255,255,255,0.72); letter-spacing:-0.04em; }
+    .wc-condition { font-size:16px; font-weight:300; color:rgba(255,255,255,0.45); margin-top:4px; letter-spacing:0.01em; }
 
     /* ── RIGHT: Decision panel ── */
     .decision-list { padding:6px 12px 12px; display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex:1; min-height:0; }
     .decision-list::-webkit-scrollbar { width:3px; }
     .decision-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+    .decision-empty { font-size:12px; color:var(--text-muted); padding:18px 6px; line-height:1.6; }
 
     .emp-card {
       border-radius:var(--radius-md); padding:12px;
@@ -226,48 +214,22 @@
     .emp-card.resolved  { border-color:var(--green-bdr); background:rgba(17,22,28,0.95); }
 
     .emp-top { display:flex; align-items:center; gap:9px; margin-bottom:10px; }
-    .emp-avatar {
-      width:28px; height:28px; border-radius:50%;
-      display:flex; align-items:center; justify-content:center;
-      font-size:10px; font-weight:700; flex-shrink:0;
-    }
+    .emp-avatar { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; }
     .emp-name { font-size:13px; font-weight:600; }
     .emp-role { font-size:10px; color:var(--text-muted); margin-top:1px; }
 
-    /* Info rows */
-    .info-row { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px; }
-    .info-key { font-size:10px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted); flex-shrink:0; min-width:60px; }
-    .info-val { font-size:11px; font-weight:500; color:var(--text-secondary); text-align:right; }
-    .info-val.warn    { color:var(--amber); }
-    .info-val.crossed { text-decoration:line-through; opacity:0.35; }
-    .info-val.new     { color:var(--green); }
-
-    /* Action block */
-    .action-block {
-      margin-top:9px; padding:9px 10px;
-      border-radius:var(--radius-sm);
-      background:var(--bg-tertiary); border:1px solid var(--border-subtle);
-    }
+    .action-block { margin-top:9px; padding:9px 10px; border-radius:var(--radius-sm); background:var(--bg-tertiary); border:1px solid var(--border-subtle); }
     .action-title { font-size:9px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); margin-bottom:7px; }
     .action-row  { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
     .action-row:last-child { margin-bottom:0; }
     .action-key  { font-size:11px; color:var(--text-secondary); }
     .action-val  { font-size:11px; font-weight:600; }
     .val-granted { color:var(--green); }
-    .val-revoked { color:var(--red);   }
     .val-pending { color:var(--text-muted); }
 
-    /* AI Reasoning panel */
-    .ai-reasoning {
-      margin-top:10px; padding:10px 12px;
-      border-radius:var(--radius-sm);
-      background:rgba(77,166,255,0.08); border:1px solid rgba(77,166,255,0.15);
-      font-size:10px; line-height:1.6; color:var(--text-secondary);
-      animation:slideIn 400ms ease 200ms backwards;
-    }
+    .ai-reasoning { margin-top:10px; padding:10px 12px; border-radius:var(--radius-sm); background:rgba(77,166,255,0.08); border:1px solid rgba(77,166,255,0.15); font-size:10px; line-height:1.6; color:var(--text-secondary); animation:slideIn 400ms ease 200ms backwards; }
     .ai-reasoning-title { font-size:9px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--blue); margin-bottom:6px; }
 
-    /* Divider */
     .divider { height:1px; background:var(--border-subtle); margin:8px 0; }
 
     /* ── RIGHT: Physical access panel ── */
@@ -277,23 +239,14 @@
     .access-orb.live { background:var(--green); }
     .access-status-text { font-size:11px; font-weight:500; color:var(--text-muted); }
 
-    .scan-record {
-      background:var(--bg-tertiary); border:1px solid var(--border-subtle);
-      border-radius:var(--radius-sm); padding:10px 12px;
-    }
+    .scan-record { background:var(--bg-tertiary); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:10px 12px; }
     .scan-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
     .scan-row:last-child { margin-bottom:0; }
     .scan-key { font-size:10px; color:var(--text-muted); }
     .scan-val { font-size:11px; font-weight:500; color:var(--text-primary); }
-    .scan-placeholder { font-size:11px; color:var(--text-muted); text-align:center; padding:6px 0; }
+    .scan-placeholder { font-size:11px; color:var(--text-muted); text-align:center; padding:6px 0; line-height:1.5; }
 
-    .access-decision {
-      margin-top:8px; padding:8px 12px;
-      border-radius:var(--radius-sm);
-      background:var(--green-bg); border:1px solid var(--green-bdr);
-      display:flex; align-items:center; gap:8px;
-      font-size:12px; font-weight:600; color:var(--green);
-    }
+    .access-decision { margin-top:8px; padding:8px 12px; border-radius:var(--radius-sm); background:var(--green-bg); border:1px solid var(--green-bdr); display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:var(--green); }
     .access-reason { margin-top:5px; font-size:10px; color:var(--text-muted); }
 
     /* ── MODAL ── */
@@ -305,91 +258,44 @@
     }
     .modal-overlay.show { display:flex; opacity:1; }
     .modal {
-      width:min(560px,92vw); max-height:86vh; overflow-y:auto;
+      width:min(580px,92vw); max-height:86vh; overflow-y:auto;
       background:var(--bg-secondary); border:1px solid var(--border);
       border-radius:var(--radius-lg);
       box-shadow:0 24px 56px rgba(0,0,0,0.55);
       transform:scale(0.97); transition:transform 220ms ease;
     }
     .modal-overlay.show .modal { transform:scale(1); }
-    .modal-overlay.show { display:flex; }
 
-    .modal-head {
-      padding:22px 22px 6px;
-      display:flex; align-items:flex-start; justify-content:space-between;
-      border-bottom:1px solid var(--border);
-    }
+    .modal-head { padding:22px 22px 16px; display:flex; align-items:flex-start; justify-content:space-between; border-bottom:1px solid var(--border); }
     .modal-eyebrow { font-size:10px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); margin-bottom:5px; }
     .modal-title { font-size:22px; font-weight:600; letter-spacing:-0.02em; }
-    .modal-close {
-      width:28px; height:28px; border-radius:var(--radius-sm);
-      border:1px solid var(--border); background:var(--bg-tertiary);
-      color:var(--text-secondary); font-size:16px; cursor:pointer;
-      display:flex; align-items:center; justify-content:center; flex-shrink:0;
-      transition:background 160ms;
-    }
+    .modal-close { width:28px; height:28px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-tertiary); color:var(--text-secondary); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background 160ms; }
     .modal-close:hover { background:var(--bg-elevated); color:var(--text-primary); }
 
-    .timeline { padding:16px 22px 22px; display:flex; flex-direction:column; gap:12px; }
-    .wf-step { display:grid; grid-template-columns:32px 1fr; gap:12px; }
-    .wf-left { position:relative; display:flex; justify-content:center; }
-    .wf-node {
-      width:24px; height:24px; border-radius:50%;
-      border:1px solid rgba(255,255,255,0.2); background:var(--bg-tertiary);
-      display:flex; align-items:center; justify-content:center;
-      font-size:10px; font-weight:600; color:var(--text-muted); flex-shrink:0;
-      transition:all 280ms ease;
-    }
-    .wf-step.active .wf-node { border-color:var(--green); background:var(--green-bg); color:var(--text-primary); }
-    .wf-step.done   .wf-node { border-color:var(--green); background:var(--green); color:#042910; }
-    .wf-step.done   .wf-node::before { content:"✓"; font-size:11px; font-weight:700; }
-    .wf-step.done   .wf-node span,
-    .wf-step.active .wf-node span { display:none; }
-    .connector { position:absolute; top:24px; left:15px; width:1px; height:calc(100% + 12px); background:var(--border); overflow:hidden; }
-    .connector i { position:absolute; inset:auto 0 100% 0; background:var(--green); transition:500ms ease; }
-    .wf-step.done .connector i { inset:0 0 0 0; }
+    /* Agent execution timeline */
+    .timeline { padding:16px 22px 6px; display:flex; flex-direction:column; gap:14px; }
+    .ax-step { display:grid; grid-template-columns:22px 1fr; gap:11px; animation:slideIn 300ms ease; }
+    .ax-ico { font-size:13px; line-height:1.5; }
+    .ax-ico.run  { color:var(--amber); animation:breathe 1.1s infinite; }
+    .ax-ico.pend { color:var(--text-muted); }
+    .ax-name { font-size:13px; font-weight:600; color:var(--text-primary); }
+    .ax-name .ax-kind  { color:var(--blue); font-weight:600; }
+    .ax-name .ax-genai { color:var(--violet); font-weight:600; }
+    .ax-line { display:flex; gap:8px; margin-top:4px; font-size:11px; font-family:'SF Mono','Fira Code',monospace; line-height:1.5; }
+    .ax-k { color:var(--text-muted); min-width:58px; flex-shrink:0; }
+    .ax-v { color:var(--green); word-break:break-word; }
+    .ax-thought { margin-top:5px; font-size:11px; font-style:italic; color:var(--text-secondary); line-height:1.55; border-left:2px solid rgba(167,139,250,0.45); padding-left:9px; }
+    .ax-meta { padding:6px 22px 4px; font-size:10px; color:var(--text-muted); letter-spacing:0.04em; }
 
-    .wf-content-title { font-size:13px; font-weight:600; margin-bottom:3px; }
-    .wf-content-desc  { font-size:11px; color:var(--text-muted); line-height:1.5; }
-    .payload {
-      margin-top:8px; padding:9px 10px;
-      background:var(--bg-primary); border:1px solid var(--border-subtle); border-radius:var(--radius-sm);
-      font-size:10px; font-family:'SF Mono','Fira Code',monospace; line-height:1.7;
-      color:var(--text-muted); display:none;
-    }
-    .wf-step.active .payload, .wf-step.done .payload { display:block; }
-    .pl-k { color:var(--blue); } .pl-s { color:#e8c27a; } .pl-v { color:rgba(0,201,81,0.85); }
-
-    .chips { margin-top:9px; display:flex; flex-wrap:wrap; gap:5px; }
-    .chip {
-      border-radius:999px; padding:4px 9px;
-      border:1px solid var(--border); background:var(--bg-tertiary);
-      font-size:10px; font-weight:500; color:var(--text-muted); transition:260ms ease;
-    }
-    .chip.lit { color:var(--text-primary); border-color:var(--green-bdr); background:var(--green-bg); }
-
-    .showcase {
-      margin-top:9px; padding:11px 12px;
-      border-radius:var(--radius-sm); border:1px solid var(--green-bdr);
-      background:var(--green-bg); font-size:13px; font-weight:600; color:var(--green);
-      display:none;
-    }
-    .showcase small { display:block; margin-top:3px; font-size:10px; font-weight:400; color:var(--text-secondary); }
-
-    .resolve-wrap { padding:4px 22px 20px; display:none; }
-    .resolve-btn {
-      width:100%; padding:11px 16px; border-radius:var(--radius-sm);
-      border:1px solid var(--border); background:var(--bg-elevated);
-      font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
-      color:var(--text-secondary); cursor:pointer; transition:180ms;
-    }
+    .resolve-wrap { padding:8px 22px 20px; display:none; }
+    .resolve-btn { width:100%; padding:11px 16px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-elevated); font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-secondary); cursor:pointer; transition:180ms; }
     .resolve-btn:hover { background:var(--bg-tertiary); border-color:rgba(255,255,255,0.2); color:var(--text-primary); }
 
     /* ── UTILITIES ── */
     .fade-layer { transition:opacity 700ms ease; }
     .fade-layer.fading { opacity:0.06; }
 
-    @keyframes breathe { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+    @keyframes breathe { 0%,100%{opacity:1;} 50%{opacity:0.55;} }
     @keyframes slideIn { from{transform:translateX(-8px);opacity:0;} to{transform:translateX(0);opacity:1;} }
   </style>
 </head>
@@ -459,7 +365,6 @@
 
     <!-- RIGHT COL -->
     <section class="col">
-
       <div class="card" style="flex:1.7;min-height:0;display:flex;flex-direction:column;">
         <div class="card-header" style="flex-shrink:0">
           <span class="card-label">Live Decision Panel</span>
@@ -480,7 +385,6 @@
           </div>
         </div>
       </div>
-
     </section>
   </main>
 
@@ -490,11 +394,12 @@
       <div class="modal-head">
         <div>
           <div class="modal-eyebrow">ServiceNow — Agentic Workflow</div>
-          <div class="modal-title">Workplace reallocation in progress</div>
+          <div class="modal-title">Resolve Travel Disruption</div>
         </div>
         <button class="modal-close" id="closeModal">✕</button>
       </div>
       <div class="timeline" id="timeline"></div>
+      <div class="ax-meta" id="axMeta"></div>
       <div class="resolve-wrap" id="resolveWrap">
         <button class="resolve-btn" id="resolveBtn">Mark Event Resolved — Restore All Assignments</button>
       </div>
@@ -504,9 +409,10 @@
   <script>
   // ── CONFIGURATION ──
   const SN_WEBHOOK_URL = "https://tombai.service-now.com/api/x_snc_routeready/workplace_disruption_api/receive";
-  const SN_STATUS_URL = "https://tombai.service-now.com/api/x_snc_routeready/workplace_disruption_api/status";
+  const SN_STATUS_URL  = "https://tombai.service-now.com/api/x_snc_routeready/workplace_disruption_api/status";
+  const POLL_MS = 2000;   // refresh the live feed every 2s
 
-  // ── CITY DATA ──
+  // ── CITY DATA (scene setup only — drives the weather visuals & which disruption to simulate) ──
   const CITIES = {
     london: {
       name:"London", temp:9, condition:"Severe Thunderstorm", icon:"⛈",
@@ -515,7 +421,7 @@
       alertDesc:"TfL suspending Jubilee, Central & Northern lines. Surface travel severely impacted.",
       sky:["#050708","#0B0F14","#141920"], grade:"rgba(30,6,6,0.45)",
       headline:"Workforce disruption detected",
-      body:"6 employees cannot reach their assigned office. Reallocation ready to execute."
+      body:"Staff cannot reach the affected office. Reallocation agent ready to execute."
     },
     manchester: {
       name:"Manchester", temp:2, condition:"Heavy Snowfall", icon:"❄",
@@ -524,7 +430,7 @@
       alertDesc:"National Rail suspended. Metrolink halted. Roads impassable across M1–M4.",
       sky:["#090C10","#10151C","#181E28"], grade:"rgba(14,20,30,0.42)",
       headline:"Snow event blocking workforce routes",
-      body:"North corridor transport suspended. Safe office reallocation in progress."
+      body:"North corridor transport suspended. Safe office reallocation ready to execute."
     },
     edinburgh: {
       name:"Edinburgh", temp:7, condition:"Dense Fog", icon:"🌫",
@@ -554,112 +460,238 @@
   };
   const CITY_ORDER = ["london","manchester","edinburgh","birmingham","bristol"];
 
-  const EMPLOYEES = [
-    {init:"SR",name:"Sarah R.",  role:"Sr. Product Manager", home:"Stratford, E15",      office:"London HQ, EC2",    newOffice:"Paddington, W2",    bg:"rgba(77,166,255,0.18)",  fg:"#4DA6FF", reason:"Shortest viable commute: 14 min vs 52 min to HQ"},
-    {init:"JM",name:"James M.",  role:"Solution Consultant", home:"Bethnal Green, E2",   office:"Bishopsgate, EC2",  newOffice:"Shoreditch, E1",    bg:"rgba(0,201,81,0.15)",    fg:"#00C951", reason:"Shortest viable commute: 9 min vs 44 min to HQ"},
-    {init:"AL",name:"Aisha L.",  role:"Account Executive",   home:"Brixton, SW9",        office:"Waterloo, SE1",     newOffice:"Vauxhall, SW8",     bg:"rgba(167,139,250,0.18)", fg:"#A78BFA", reason:"Shortest viable commute: 11 min vs 38 min to HQ"},
-    {init:"TK",name:"Tom K.",    role:"Platform Architect",  home:"Hackney, E8",         office:"Bank, EC3",         newOffice:"Farringdon, EC1",   bg:"rgba(245,166,35,0.16)",  fg:"#F5A623", reason:"Shortest viable commute: 17 min vs 51 min to HQ"},
-    {init:"PW",name:"Priya W.",  role:"Customer Success",    home:"Greenwich, SE10",     office:"Canary Wharf, E14", newOffice:"Stratford, E15",    bg:"rgba(255,77,77,0.15)",   fg:"#FF4D4D", reason:"Shortest viable commute: 22 min vs 58 min to HQ"},
-    {init:"DC",name:"David C.",  role:"Engineering Lead",    home:"Islington, N1",       office:"Aldgate, EC3",      newOffice:"Bethnal Green, E2", bg:"rgba(0,201,81,0.15)",    fg:"#00C951", reason:"Shortest viable commute: 8 min vs 47 min to HQ"},
-  ];
-
   let activeCityKey="london", trans=null, autoTimer=null, autoTick=null, wfFired=false;
   let statusPollInterval=null, liveData=null;
 
-  // ── POLLING ──
-  function startStatusPolling(){
-    console.log("🔄 Starting /status polling...");
-    statusPollInterval=setInterval(()=>{
-      fetch(SN_STATUS_URL, {method:"GET", headers:{"Content-Type":"application/json"}})
-        .then(r=>r.json())
-        .then(data=>{
-          console.log("📊 Status data:", data);
-          liveData=data;
-          updateDecisionsFromLiveData(data);
-        })
-        .catch(e=>console.warn("⚠ Status poll error:", e));
-    }, 3000);
-  }
+  // ── HELPERS ──
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+  function unwrap(raw){ return (raw && raw.result) ? raw.result : (raw || {}); }
 
+  // ── POLLING ──
+  function pollOnce(){
+    fetch(SN_STATUS_URL, {method:"GET", headers:{"Content-Type":"application/json"}})
+      .then(r=>r.json())
+      .then(data=>{ console.log("📊 Status data:", data); applyLiveData(data); })
+      .catch(e=>console.warn("⚠ Status poll error:", e));
+  }
+  function startStatusPolling(){
+    console.log("🔄 Starting /status polling ("+POLL_MS+"ms)...");
+    stopStatusPolling();
+    statusPollInterval=setInterval(pollOnce, POLL_MS);
+  }
   function stopStatusPolling(){
     if(statusPollInterval){clearInterval(statusPollInterval); statusPollInterval=null;}
   }
 
-  function updateDecisionsFromLiveData(data){
-    const decisionList=document.getElementById("decisionList");
-    if(!decisionList)return;
+  // ── SINGLE SOURCE OF TRUTH: apply live record to every panel ──
+  function applyLiveData(raw){
+    liveData = raw;
+    const d = unwrap(raw);
 
-    // Clear and rebuild from API data
-    decisionList.innerHTML="";
-    
-    const prioritized=data.prioritized_staff||[];
-    const excluded=data.excluded_staff||[];
-    const allAffected=[...prioritized, ...excluded];
-    
-    document.getElementById("impactCount").textContent=`${allAffected.length} affected`;
+    const prioritized = Array.isArray(d.prioritized_staff)?d.prioritized_staff:[];
+    const excluded    = Array.isArray(d.excluded_staff)?d.excluded_staff:[];
+    const total = prioritized.length + excluded.length;
 
-    // Render prioritized staff
-    prioritized.forEach((emp,i)=>{
-      const card=createEmployeeCard(emp, i, "resolved", data.staffing_justification);
-      decisionList.appendChild(card);
-    });
+    // Left-panel summary reflects the real numbers once they exist
+    if(total>0){
+      engineBody.textContent = prioritized.length+" staff prioritised for office access · "+
+                               excluded.length+" cleared to work remotely · reallocation agent running.";
+    }
 
-    // Render excluded staff (if any)
-    excluded.forEach((emp,i)=>{
-      const card=createEmployeeCard(emp, prioritized.length+i, "excluded", data.staffing_justification);
-      decisionList.appendChild(card);
-    });
+    // Decision cards (live)
+    updateDecisionCards(prioritized, excluded, d.staffing_justification);
+
+    // Agent execution timeline — use the real feed if present, otherwise derive from the record
+    const steps = (Array.isArray(d.agent_execution) && d.agent_execution.length)
+      ? normalizeSteps(d.agent_execution)
+      : deriveSteps(d, prioritized, excluded);
+
+    if(modalOverlay.classList.contains("show")) renderAgentTimeline(steps);
+    renderMiniSteps(steps);
+
+    // Physical access (live)
+    renderAccessFromData(d);
   }
 
-  function createEmployeeCard(emp, idx, mode, staffingJustification){
+  // ── DECISION CARDS ──
+  function updateDecisionCards(prioritized, excluded, justification){
+    decisionList.innerHTML="";
+    const total = prioritized.length + excluded.length;
+    if(total===0){
+      showDecisionPlaceholder("Analysing staff against the disruption… awaiting agent output.");
+      return;
+    }
+    impactCount.textContent = total+" affected";
+    prioritized.forEach((emp,i)=> decisionList.appendChild(buildStaffCard(emp, i, "resolved", justification)));
+    excluded.forEach((emp,i)=> decisionList.appendChild(buildStaffCard(emp, prioritized.length+i, "excluded", justification)));
+  }
+
+  function buildStaffCard(emp, idx, mode, justification){
     const el=document.createElement("div");
     el.className="emp-card"+(mode==="resolved"?" resolved":mode==="excluded"?" disrupted":"");
-    el.id=`ec-${idx}`;
+    el.id="ec-"+idx;
 
-    const name=emp.name||"Unknown";
-    const title=emp.title||"Staff";
-    const userId=emp.user_id||"N/A";
-    
-    // Generate deterministic color
+    const name=emp.name||emp.user_name||"Unknown";
+    const title=emp.title||emp.role||"Staff";
+    const userId=emp.user_id||emp.sys_id||"N/A";
+
     const hue=((idx*137.5)%360);
-    const bg=`hsla(${hue},70%,50%,0.12)`;
-    const fg=`hsl(${hue},100%,60%)`;
-    
+    const bg="hsla("+hue+",70%,50%,0.12)";
+    const fg="hsl("+hue+",100%,60%)";
     const init=name.split(" ").map(p=>p[0]).join("").toUpperCase().slice(0,2);
+    const reasonText=justification||"Classified by the AI agent.";
 
-    const reasonText=staffingJustification||"Optimal route reallocation";
-
-    const actionBlock = mode==="resolved" ? `
+    const block = mode==="resolved" ? `
       <div class="divider"></div>
       <div class="action-block">
         <div class="action-title">Decision Taken</div>
-        <div class="action-row"><span class="action-key">Status</span><span class="action-val val-granted">Reallocated</span></div>
-        <div class="action-row"><span class="action-key">User ID</span><span class="action-val">${userId}</span></div>
+        <div class="action-row"><span class="action-key">Status</span><span class="action-val val-granted">Prioritised — office access</span></div>
+        <div class="action-row"><span class="action-key">User ID</span><span class="action-val">${esc(userId)}</span></div>
       </div>
       <div class="ai-reasoning">
         <div class="ai-reasoning-title">🤖 AI Reasoning</div>
-        ${reasonText}
+        ${esc(reasonText)}
       </div>` : `
       <div class="divider"></div>
       <div class="action-block">
-        <div class="action-title">Status</div>
-        <div class="action-row"><span class="action-key">Availability</span><span class="action-val val-pending">Not affected</span></div>
+        <div class="action-title">Decision Taken</div>
+        <div class="action-row"><span class="action-key">Status</span><span class="action-val val-pending">Cleared to work remotely</span></div>
+        <div class="action-row"><span class="action-key">User ID</span><span class="action-val">${esc(userId)}</span></div>
       </div>`;
 
     el.innerHTML=`
       <div class="emp-top">
-        <div class="emp-avatar" style="background:${bg};color:${fg}">${init}</div>
+        <div class="emp-avatar" style="background:${bg};color:${fg}">${esc(init)}</div>
         <div>
-          <div class="emp-name">${name}</div>
-          <div class="emp-role">${title}</div>
+          <div class="emp-name">${esc(name)}</div>
+          <div class="emp-role">${esc(title)}</div>
         </div>
       </div>
-      ${actionBlock}
-    `;
+      ${block}`;
     return el;
   }
 
-  // ── CANVAS ENGINE ──
+  function showDecisionPlaceholder(text){
+    decisionList.innerHTML='<div class="decision-empty">'+esc(text)+'</div>';
+    impactCount.textContent="";
+  }
+
+  // ── AGENT EXECUTION TIMELINE ──
+  // Map a server-supplied agent_execution[] into the portal's shape (defensive on field names).
+  function normalizeSteps(arr){
+    return arr.map(s=>{
+      const t=(s.type||"").toLowerCase();
+      return {
+        type: (t==="genai"||t==="llm"||t==="reasoning") ? "genai" : (t==="status" ? "status" : "tool"),
+        name: s.name||s.tool||s.label||"Step",
+        status: (s.status||"done").toLowerCase(),
+        latency_ms: (s.latency_ms!=null)?s.latency_ms:(s.latency!=null?s.latency:null),
+        output: (s.output!=null)?s.output:(s.result!=null?s.result:null),
+        thought: s.thought||s.reasoning||null,
+        status_text: s.status_text||s.statusText||null
+      };
+    });
+  }
+
+  // Fallback: build a real (non-fabricated) sequence from the fields the /status record already returns.
+  function deriveSteps(d, prioritized, excluded){
+    const steps=[];
+    if(d.disruption_number){
+      steps.push({type:"tool", name:"Retrieve Disruption Record Sysid", status:"done", output:d.disruption_number});
+    }
+    if(prioritized.length || excluded.length){
+      const sample = prioritized.slice(0,2).map(p=>(p.title||"Staff")+" ("+(p.name||"—")+")").join(", ");
+      steps.push({
+        type:"tool", name:"Identify Priority and Non-Priority Staff", status:"done",
+        output: prioritized.length+" prioritised, "+excluded.length+" excluded"+(sample?" — "+sample+"…":"")
+      });
+    }
+    if(d.staffing_justification){
+      steps.push({type:"genai", name:"AIA ReAct Engine", status:"done", thought:d.staffing_justification});
+    }
+    const resolved = d.state && String(d.state).toLowerCase()!=="open";
+    steps.push({
+      type:"tool", name:"Update Disruption Record",
+      status: resolved?"done":"running",
+      status_text: d.state || "Pending…"
+    });
+    return steps;
+  }
+
+  function renderAgentTimeline(steps){
+    timeline.innerHTML="";
+    steps.forEach(s=>{
+      const st=s.status||"done";
+      const ico  = st==="done"?"✅":st==="running"?"◌":"•";
+      const icoCls = st==="running"?"run":st==="pending"?"pend":"";
+      const kindHtml = s.type==="genai"
+        ? '<span class="ax-genai">GenAI · '+esc(s.name||"AIA ReAct Engine")+'</span>'
+        : s.type==="status"
+          ? '<span>'+esc(s.name)+'</span>'
+          : '<span class="ax-kind">Tool:</span> '+esc(s.name);
+
+      let lines="";
+      if(s.latency_ms!=null) lines+='<div class="ax-line"><span class="ax-k">Latency</span><span class="ax-v">'+esc(s.latency_ms)+'ms</span></div>';
+      if(s.thought)          lines+='<div class="ax-thought">"'+esc(s.thought)+'"</div>';
+      if(s.output!=null && s.output!=="") lines+='<div class="ax-line"><span class="ax-k">Output</span><span class="ax-v">'+esc(s.output)+'</span></div>';
+      if(s.status_text)      lines+='<div class="ax-line"><span class="ax-k">Status</span><span class="ax-v">'+esc(s.status_text)+'</span></div>';
+
+      const row=document.createElement("div");
+      row.className="ax-step";
+      row.innerHTML='<div class="ax-ico '+icoCls+'">'+ico+'</div><div><div class="ax-name">'+kindHtml+'</div>'+lines+'</div>';
+      timeline.appendChild(row);
+    });
+    document.getElementById("axMeta").textContent="● Live · agent execution · updated "+timeStr();
+    resolveWrap.style.display="block";
+  }
+
+  function showTimelineConnecting(){
+    timeline.innerHTML='<div class="ax-step"><div class="ax-ico run">◌</div><div><div class="ax-name">Connecting to agent execution feed…</div></div></div>';
+    document.getElementById("axMeta").textContent="";
+    resolveWrap.style.display="none";
+  }
+
+  // ── MINI STEP TRACKER (left panel) ──
+  function renderMiniSteps(steps){
+    miniSteps.innerHTML = steps.map(s=>{
+      const st=s.status||"done";
+      const cls = st==="done"?"done":st==="running"?"active":"";
+      const label = s.type==="genai" ? "GenAI reasoning" : (s.name||"Step");
+      return '<div class="mini-step '+cls+'"><span class="mini-dot"></span>'+esc(label)+'</div>';
+    }).join("");
+  }
+
+  // ── PHYSICAL ACCESS PANEL (live from badge_assignments) ──
+  function renderAccessFromData(d){
+    const ba = Array.isArray(d.badge_assignments)?d.badge_assignments:[];
+    if(ba.length){
+      const a=ba[0];
+      const name=a.name||a.employee||a.user||"Staff";
+      const loc =a.location||a.office||a.safe_office||d.office_affected||"—";
+      const status=a.status||"Granted";
+      const valid =a.valid_until||a.expiry||"";
+      accessOrb.className="access-orb live";
+      accessStatusText.textContent="Badge scan processed";
+      scanRecord.innerHTML=
+        '<div class="scan-row"><span class="scan-key">Employee</span><span class="scan-val">'+esc(name)+'</span></div>'+
+        '<div class="scan-row"><span class="scan-key">Location</span><span class="scan-val">'+esc(loc)+'</span></div>'+
+        '<div class="scan-row"><span class="scan-key">Time</span><span class="scan-val">'+timeStr()+'</span></div>'+
+        '<div class="access-decision">✅ Access '+esc(status)+'</div>'+
+        (valid?'<div class="access-reason">Reason: Temporary reassignment active · Valid until '+esc(valid)+'</div>'
+              :'<div class="access-reason">Reason: Temporary reassignment active</div>');
+    } else {
+      accessOrb.className="access-orb";
+      accessStatusText.textContent="Awaiting badge provisioning";
+      scanRecord.innerHTML='<div class="scan-placeholder">No badge assignments yet — the Arrange Travel agent will populate this</div>';
+    }
+  }
+  function resetAccessPanel(){
+    accessOrb.className="access-orb";
+    accessStatusText.textContent="Awaiting badge activity";
+    scanRecord.innerHTML='<div class="scan-placeholder">No badge scan recorded</div>';
+  }
+
+  // ── CANVAS ENGINE (weather visuals — presentation only) ──
   const canvas=document.getElementById("atmos"), ctx=canvas.getContext("2d");
   let W=innerWidth, H=innerHeight, DPR=Math.min(devicePixelRatio||1,2);
   canvas.width=W*DPR; canvas.height=H*DPR; ctx.scale(DPR,DPR);
@@ -670,7 +702,7 @@
   function clamp(x,a,b){return Math.max(a,Math.min(b,x));}
   function lerp(a,b,t){return a+(b-a)*t;}
   function h2r(h){const n=h.replace("#","");return[parseInt(n.slice(0,2),16),parseInt(n.slice(2,4),16),parseInt(n.slice(4,6),16)];}
-  function rgb(r,g,b,a=1){return`rgba(${r|0},${g|0},${b|0},${a})`;}
+  function rgb(r,g,b,a=1){return"rgba("+(r|0)+","+(g|0)+","+(b|0)+","+a+")";}
   function perf(){return performance.now();}
   function timeStr(){return[new Date().getHours(),new Date().getMinutes(),new Date().getSeconds()].map(v=>String(v).padStart(2,"0")).join(":");}
 
@@ -698,7 +730,7 @@
     for(const c of S.clouds){
       c.x+=c.vx*dt; if(c.x-c.r>W+40)c.x=-c.r-40;
       const cg=ctx.createRadialGradient(c.x,c.y,c.r*.12,c.x,c.y,c.r);
-      cg.addColorStop(0,`rgba(255,255,255,${c.alpha})`);
+      cg.addColorStop(0,"rgba(255,255,255,"+c.alpha+")");
       cg.addColorStop(1,"rgba(255,255,255,0)");
       ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill();
     }
@@ -706,7 +738,7 @@
     if(city.weather==="storm"){
       if(perf()>S.ltNext){S.ltAt=perf();S.ltNext=perf()+rnd(10000,16000);}
       const age=perf()-S.ltAt;
-      if(age>=0&&age<140){ctx.fillStyle=`rgba(200,218,255,${.2*(1-age/140)})`;ctx.fillRect(0,0,W,H);}
+      if(age>=0&&age<140){ctx.fillStyle="rgba(200,218,255,"+(.2*(1-age/140))+")";ctx.fillRect(0,0,W,H);}
     }
 
     if(city.weather==="storm"||city.weather==="rain"){
@@ -715,7 +747,7 @@
       for(const p of S.rain){
         p.y+=p.s*dt; p.x+=p.s*dt*ang;
         if(p.y>H+24||p.x>W+24){p.y=-24;p.x=Math.random()*W*.85;}
-        ctx.strokeStyle=`rgba(190,210,245,${p.a})`;
+        ctx.strokeStyle="rgba(190,210,245,"+p.a+")";
         ctx.lineWidth=city.weather==="storm"?1.2:0.9;
         ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.l*ang,p.y-p.l);ctx.stroke();
       }
@@ -726,7 +758,7 @@
         p.y+=p.sy*dt; p.x+=(Math.sin((p.y+p.r)*.011)*20+p.sx)*dt;
         if(p.y>H+8){p.y=-8;p.x=Math.random()*W;}
         if(p.x>W+8)p.x=-8; if(p.x<-8)p.x=W+8;
-        ctx.fillStyle=`rgba(230,238,252,${clamp(.38+p.z*.38,0,0.8)})`;
+        ctx.fillStyle="rgba(230,238,252,"+clamp(.38+p.z*.38,0,0.8)+")";
         ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
       }
     }
@@ -736,7 +768,7 @@
     for(const p of S.fog){
       p.x+=p.vx*dt; if(p.x-p.r>W+16)p.x=-p.r-16;
       const fg=ctx.createRadialGradient(p.x,p.y,p.r*.18,p.x,p.y,p.r);
-      fg.addColorStop(0,`rgba(200,212,224,${p.alpha*(1+S.fogStr)})`);
+      fg.addColorStop(0,"rgba(200,212,224,"+(p.alpha*(1+S.fogStr))+")");
       fg.addColorStop(1,"rgba(200,212,224,0)");
       ctx.fillStyle=fg; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
     }
@@ -767,67 +799,6 @@
   const grade=document.getElementById("grade");
   const fogw=document.getElementById("fogw");
 
-  // ── DECISION PANEL ──
-  function renderDecisions(mode){
-    decisionList.innerHTML="";
-    impactCount.textContent = mode!=="idle" ? `${EMPLOYEES.length} affected` : "";
-
-    EMPLOYEES.forEach((e,i)=>{
-      const el=document.createElement("div");
-      el.className="emp-card"+(mode==="disrupted"?" disrupted":mode==="resolved"?" resolved":"");
-      el.id=`ec-${i}`;
-
-      const disruptRow = mode!=="idle"
-        ?`<div class="info-row"><span class="info-key">Status</span><span class="info-val warn">Primary route disrupted</span></div>`:"";
-
-      const actionBlock = mode==="resolved" ? `
-        <div class="divider"></div>
-        <div class="action-block">
-          <div class="action-title">Decision Taken</div>
-          <div class="action-row"><span class="action-key">→ Relocated to</span><span class="action-val val-granted">${e.newOffice}</span></div>
-          <div class="action-title" style="margin-top:8px">Badge Access</div>
-          <div class="action-row"><span class="action-key">${e.office}</span><span class="action-val val-revoked">Disabled</span></div>
-          <div class="action-row"><span class="action-key">${e.newOffice}</span><span class="action-val val-granted">Enabled</span></div>
-          <div class="action-row"><span class="action-key">Valid until</span><span class="action-val val-granted">18:00 today</span></div>
-          <div class="action-title" style="margin-top:8px">Reason</div>
-          <div class="action-row"><span class="action-key" style="color:var(--text-secondary);font-size:10px;font-weight:400;letter-spacing:0">${e.reason}</span></div>
-        </div>` : "";
-
-      el.innerHTML=`
-        <div class="emp-top">
-          <div class="emp-avatar" style="background:${e.bg};color:${e.fg}">${e.init}</div>
-          <div>
-            <div class="emp-name">${e.name}</div>
-            <div class="emp-role">${e.role}</div>
-          </div>
-        </div>
-        <div class="info-row"><span class="info-key">Home</span><span class="info-val">📍 ${e.home}</span></div>
-        <div class="info-row"><span class="info-key">Office</span><span class="info-val ${mode==="resolved"?"crossed":""}">🏢 ${e.office}</span></div>
-        ${disruptRow}${actionBlock}
-      `;
-      decisionList.appendChild(el);
-    });
-  }
-
-  // ── PHYSICAL ACCESS PANEL ──
-  function showAccessGranted(emp){
-    accessOrb.className="access-orb live";
-    accessStatusText.textContent="Badge scan processed";
-    scanRecord.innerHTML=`
-      <div class="scan-row"><span class="scan-key">Employee</span><span class="scan-val">${emp.name}</span></div>
-      <div class="scan-row"><span class="scan-key">Location</span><span class="scan-val">${emp.newOffice}</span></div>
-      <div class="scan-row"><span class="scan-key">Time</span><span class="scan-val">${timeStr()}</span></div>
-      <div class="access-decision">✅ Access Granted</div>
-      <div class="access-reason">Reason: Temporary reassignment active · Valid until 18:00</div>
-    `;
-  }
-
-  function resetAccessPanel(){
-    accessOrb.className="access-orb";
-    accessStatusText.textContent="Awaiting badge activity";
-    scanRecord.innerHTML=`<div class="scan-placeholder">No badge scan recorded</div>`;
-  }
-
   // ── RENDER CITY ──
   function renderCityRows(){
     cityListEl.innerHTML="";
@@ -836,12 +807,11 @@
       const btn=document.createElement("button");
       btn.type="button";
       btn.className="city-row"+(key===activeCityKey?" active":"");
-      btn.innerHTML=`
-        <div class="cicon">${c.icon}</div>
-        <div class="cmeta"><h4>${c.name}</h4><p>${c.condition}</p></div>
-        <div class="ctemp">${c.temp}°</div>
-        ${c.disruption==="red"?'<span class="status-tag tag-red">Alert</span>':c.disruption==="amber"?'<span class="status-tag tag-amber">Watch</span>':""}
-      `;
+      btn.innerHTML=
+        '<div class="cicon">'+c.icon+'</div>'+
+        '<div class="cmeta"><h4>'+esc(c.name)+'</h4><p>'+esc(c.condition)+'</p></div>'+
+        '<div class="ctemp">'+c.temp+'°</div>'+
+        (c.disruption==="red"?'<span class="status-tag tag-red">Alert</span>':c.disruption==="amber"?'<span class="status-tag tag-amber">Watch</span>':"");
       btn.addEventListener("click",()=>switchCity(key));
       cityListEl.appendChild(btn);
     });
@@ -850,26 +820,26 @@
   function renderMain(city){
     const dis=!!city.disruption;
     wcCity.textContent=city.name.toUpperCase();
-    wcTemp.innerHTML=`${city.temp}°`;
+    wcTemp.innerHTML=city.temp+"°";
     wcCond.textContent=city.condition;
 
     alertTitle.textContent=city.alertTitle;
     alertDesc.textContent=city.alertDesc;
     alertBanner.classList.toggle("show",dis);
-
     triggerBtn.classList.toggle("vis",dis);
 
-    const ind=dis?"red"===city.disruption?"disrupted":"watch":"clear";
+    const ind=dis?("red"===city.disruption?"disrupted":"watch"):"clear";
     statusInd.className="status-indicator "+ind;
     statusLabel.textContent=dis?"Disruption detected":"Monitoring";
     engineHeadline.textContent=city.headline;
     engineBody.textContent=city.body;
-    if(!dis)miniSteps.innerHTML="";
+    miniSteps.innerHTML="";
 
-    grade.style.background=`radial-gradient(ellipse at 60% 0%,transparent 30%,rgba(0,0,0,0.5) 100%),${city.grade}`;
-    fogw.style.background=`rgba(210,220,232,${city.weather==="fog"?.08:0})`;
+    grade.style.background="radial-gradient(ellipse at 60% 0%,transparent 30%,rgba(0,0,0,0.5) 100%),"+city.grade;
+    fogw.style.background="rgba(210,220,232,"+(city.weather==="fog"?.08:0)+")";
 
-    renderDecisions(dis?"disrupted":"idle");
+    if(dis) showDecisionPlaceholder("⚠ Disruption detected. Trigger reallocation to run the AI agent.");
+    else    showDecisionPlaceholder("✓ No disruption detected. Agent on standby.");
     resetAccessPanel();
   }
 
@@ -889,86 +859,12 @@
     setTimeout(()=>scheduleAutoTrigger(),900);
   }
 
-  // ── WORKFLOW MODAL ──
+  // ── MODAL CONTROL ──
   const modalOverlay=document.getElementById("modalOverlay");
   const closeModalBtn=document.getElementById("closeModal");
   const resolveBtn=document.getElementById("resolveBtn");
   const resolveWrap=document.getElementById("resolveWrap");
   const timeline=document.getElementById("timeline");
-
-  const WF=[
-    ["Event detection & classification",
-     "Disruption signal validated. Postcode zones mapped to affected transport corridors.",
-     `{ <span class="pl-k">city</span>:<span class="pl-s">"London"</span>, <span class="pl-k">severity</span>:<span class="pl-s">"CRITICAL"</span>, <span class="pl-k">zones</span>:<span class="pl-s">["EC1","EC2","SE1","WC1"]</span> }`],
-    ["Employees matched to disruption zone",
-     "847 commute profiles cross-referenced. 6 employees cannot reach their assigned office.",
-     `{ <span class="pl-k">scanned</span>:<span class="pl-v">847</span>, <span class="pl-k">affected</span>:<span class="pl-v">6</span>, <span class="pl-k">method</span>:<span class="pl-s">"postcode_polygon_match"</span> }`],
-    ["Nearest safe office calculated",
-     "Live transport graph finds optimal reachable office per employee, excluding disrupted routes.",
-     `{ <span class="pl-k">algorithm</span>:<span class="pl-s">"dijkstra_transport_v2"</span>, <span class="pl-k">resolved</span>:<span class="pl-v">6</span>/<span class="pl-v">6</span> }`],
-    ["Personalised notifications sent",
-     "Alerts dispatched via Slack, Teams and SMS with new office address and travel instructions.",
-     `{ <span class="pl-k">channels</span>:[<span class="pl-s">"slack"</span>,<span class="pl-s">"teams"</span>,<span class="pl-s">"sms"</span>], <span class="pl-k">delivered</span>:<span class="pl-v">6</span>/<span class="pl-v">6</span> }`],
-    ["HR location records updated",
-     "ServiceNow HR writes new office assignments. Auto-revert scheduled on event resolution.",
-     `{ <span class="pl-k">table</span>:<span class="pl-s">"sn_hr_core_location"</span>, <span class="pl-k">updated</span>:<span class="pl-v">6</span>, <span class="pl-k">revert_on</span>:<span class="pl-s">"event_resolved"</span> }`],
-    ["Physical badge access provisioned",
-     "IAM sub-workflow grants new office entry and revokes original. Physical lock updated in real time.",
-     `{ <span class="pl-k">grants</span>:<span class="pl-v">6</span>, <span class="pl-k">revocations</span>:<span class="pl-v">6</span>, <span class="pl-k">physical_lock</span>:<span class="pl-s">"LOCATION_AWARE→ACTIVE"</span> }`]
-  ];
-  const DELAYS=[0,1800,3600,5000,6800,8800];
-  let wfTimers=[];
-
-  function clearWfTimers(){wfTimers.forEach(t=>clearTimeout(t));wfTimers=[];}
-
-  function buildTimeline(){
-    timeline.innerHTML=""; resolveWrap.style.display="none";
-    WF.forEach((s,i)=>{
-      const row=document.createElement("div");
-      row.className="wf-step"; row.id=`wf-${i}`;
-      row.innerHTML=`
-        <div class="wf-left">
-          <div class="wf-node"><span>${i+1}</span></div>
-          ${i<WF.length-1?'<div class="connector"><i></i></div>':""}
-        </div>
-        <div class="wf-content">
-          <div class="wf-content-title">${s[0]}</div>
-          <div class="wf-content-desc">${s[1]}</div>
-          <div class="payload">${s[2]}</div>
-          ${i===1?'<div class="chips" id="chips"></div>':""}
-          ${i===5?'<div class="showcase" id="showcase">🔓 Physical Prototype Door — Access Granted<small>Original office: REVOKED · New office: GRANTED · Valid until 18:00</small></div>':""}
-        </div>`;
-      timeline.appendChild(row);
-    });
-  }
-
-  function runWorkflow(){
-    clearWfTimers(); buildTimeline();
-    const labels=["Event detected","Employees matched","Safe office found","Notifications sent","Records updated","Badge access live"];
-    miniSteps.innerHTML=labels.map(s=>`<div class="mini-step"><span class="mini-dot"></span>${s}</div>`).join("");
-    const mrows=[...miniSteps.querySelectorAll(".mini-step")];
-
-    DELAYS.forEach((delay,i)=>{
-      wfTimers.push(setTimeout(()=>{
-        const el=document.getElementById(`wf-${i}`);if(!el)return;
-        el.classList.add("active");
-        if(i<mrows.length)mrows[i].classList.add("active");
-      },delay));
-
-      wfTimers.push(setTimeout(()=>{
-        const el=document.getElementById(`wf-${i}`);if(!el)return;
-        el.classList.remove("active"); el.classList.add("done");
-        if(i<mrows.length){mrows[i].classList.remove("active");mrows[i].classList.add("done");}
-        if(i===3){ updateDecisionsFromLiveData(liveData||{}); }
-        if(i===5){
-          const sc=document.getElementById("showcase");
-          if(sc)sc.style.display="block";
-          resolveWrap.style.display="block";
-          wfTimers.push(setTimeout(()=>showAccessGranted(EMPLOYEES[0]),800));
-        }
-      },delay+1300));
-    });
-  }
 
   function openModal(){
     if(wfFired)return;
@@ -976,14 +872,22 @@
     autoBadge.classList.remove("show");
     modalOverlay.style.display="flex";
     requestAnimationFrame(()=>requestAnimationFrame(()=>modalOverlay.classList.add("show")));
-    runWorkflow();
-    startStatusPolling();
 
+    showTimelineConnecting();
+    startStatusPolling();   // poll the live feed every 2s
+    pollOnce();             // and grab the first frame immediately
+
+    // Kick off the agent on the ServiceNow side
     const city=CITIES[activeCityKey];
     if(city.disruption && SN_WEBHOOK_URL){
       fetch(SN_WEBHOOK_URL,{
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({event:city.alertTitle,severity:city.disruption==="red"?"critical":"high",location:city.name,conditions:city.condition,affected_employees:6,timestamp:new Date().toISOString(),source:"ServiceNow Workplace Decision Intelligence"})
+        body:JSON.stringify({
+          event:city.alertTitle, severity:city.disruption==="red"?"critical":"high",
+          location:city.name, conditions:city.condition,
+          timestamp:new Date().toISOString(),
+          source:"ServiceNow Workplace Decision Intelligence"
+        })
       }).then(r=>console.log("✅ Webhook sent:",r.status)).catch(e=>console.warn("⚠ Webhook error:",e));
     }
   }
@@ -991,16 +895,16 @@
   function closeWorkflow(){
     modalOverlay.classList.remove("show");
     setTimeout(()=>{ if(!modalOverlay.classList.contains("show")) modalOverlay.style.display="none"; },240);
-    clearWfTimers();
     stopStatusPolling();
   }
 
   function resolveEvent(){
     closeWorkflow(); wfFired=false;
-    renderDecisions("idle"); resetAccessPanel(); miniSteps.innerHTML="";
+    miniSteps.innerHTML="";
+    renderMain(CITIES[activeCityKey]);
   }
 
-  // ── AUTO-TRIGGER ──
+  // ── AUTO-TRIGGER PROMPT ──
   function scheduleAutoTrigger(){
     if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}
     if(autoTick){clearInterval(autoTick);autoTick=null;}
@@ -1008,10 +912,10 @@
     if(!city.disruption||wfFired)return;
     autoBadge.classList.add("show");
     let secs=8;
-    autoText.textContent=`Workplace reallocation initiating in ${secs}s…`;
+    autoText.textContent="Workplace reallocation initiating in "+secs+"s…";
     autoTick=setInterval(()=>{
       secs--;
-      if(secs>0)autoText.textContent=`Workplace reallocation initiating in ${secs}s…`;
+      if(secs>0)autoText.textContent="Workplace reallocation initiating in "+secs+"s…";
       else{clearInterval(autoTick);autoTick=null;}
     },1000);
     autoTimer=setTimeout(()=>{
