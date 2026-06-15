@@ -347,6 +347,42 @@
     .screen-btn { margin-top:30px; padding:12px 26px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-elevated); color:var(--text-secondary); font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; transition:160ms; }
     .screen-btn:hover { background:var(--bg-tertiary); border-color:rgba(255,255,255,0.2); color:var(--text-primary); }
 
+    /* ── CINEMATIC LAYER ── */
+    /* hero-timer landing pulse on the speed tile */
+    .kpi.flash { animation:kpiFlash 760ms ease; }
+    @keyframes kpiFlash {
+      0%{ box-shadow:0 0 0 0 rgba(245,166,35,0); }
+      30%{ box-shadow:0 0 0 3px rgba(245,166,35,0.40); border-color:var(--amber-bdr); }
+      100%{ box-shadow:0 0 0 0 rgba(245,166,35,0); }
+    }
+    /* typewriter caret for AI thoughts */
+    .ax-caret { display:inline-block; width:6px; color:var(--violet); animation:caret 0.9s steps(1) infinite; }
+    @keyframes caret { 0%,50%{opacity:1;} 50.01%,100%{opacity:0;} }
+
+    /* closing-screen contrast beat: ~2 hours → 51.7s */
+    .close-contrast { margin-top:26px; display:flex; align-items:center; gap:16px; font-size:clamp(15px,2vw,18px); font-weight:600; flex-wrap:wrap; justify-content:center; }
+    .close-contrast .cc-manual  { color:var(--text-muted); text-decoration:line-through; text-decoration-color:rgba(255,77,77,0.55); }
+    .close-contrast .cc-arrow   { color:var(--text-muted); font-weight:400; }
+    .close-contrast .cc-agentic { color:var(--green); font-weight:700; }
+
+    /* cold-open: storm shows through; title content reveals in sequence on .lit */
+    #titleScreen { background:radial-gradient(ellipse at 50% 42%, rgba(7,10,14,0.28) 0%, rgba(7,10,14,0.80) 78%), rgba(7,10,14,0.18); }
+    #titleScreen .screen-brand,#titleScreen .screen-eyebrow,#titleScreen .screen-title,#titleScreen .screen-tag,#titleScreen .screen-hint{
+      opacity:0; transform:translateY(10px); transition:opacity 900ms ease, transform 900ms ease;
+    }
+    #titleScreen.lit .screen-brand   { opacity:1; transform:none; transition-delay:0ms; }
+    #titleScreen.lit .screen-eyebrow { opacity:1; transform:none; transition-delay:700ms; }
+    #titleScreen.lit .screen-title   { opacity:1; transform:none; transition-delay:1150ms; }
+    #titleScreen.lit .screen-tag     { opacity:1; transform:none; transition-delay:1950ms; }
+    #titleScreen.lit .screen-hint    { opacity:1; transform:none; transition-delay:2900ms; }
+
+    /* lightning flash that fires as the alert tears in */
+    #flash { position:fixed; inset:0; z-index:45; pointer-events:none; background:#cfe0ff; opacity:0; }
+    #flash.fire { animation:flashFire 540ms ease; }
+    @keyframes flashFire { 0%{opacity:0;} 8%{opacity:0.5;} 24%{opacity:0.04;} 38%{opacity:0.36;} 100%{opacity:0;} }
+    .alert-banner.tear { animation:tearIn 640ms cubic-bezier(0.18,1.3,0.4,1); }
+    @keyframes tearIn { 0%{ transform:translateX(-50%) translateY(-34px) scale(0.95); opacity:0; } 100%{ transform:translateX(-50%) translateY(0) scale(1); opacity:1; } }
+
     /* ── UTILITIES ── */
     .fade-layer { transition:opacity 700ms ease; }
     .fade-layer.fading { opacity:0.06; }
@@ -358,6 +394,7 @@
 <body>
   <canvas id="atmos"></canvas>
   <div id="grade"></div>
+  <div id="flash"></div>
   <div id="fogw"></div>
   <div id="darken"></div>
 
@@ -473,6 +510,11 @@
       <div class="kpi"><div class="kpi-num realloc"  id="cRealloc">0</div><div class="kpi-label">Reallocated</div></div>
       <div class="kpi"><div class="kpi-num speed"    id="cSpeed">—</div><div class="kpi-label">Resolved in</div></div>
     </div>
+    <div class="close-contrast">
+      <span class="cc-manual">≈ 2 hours of manual coordination</span>
+      <span class="cc-arrow">→</span>
+      <span class="cc-agentic" id="ccAgentic">—</span>
+    </div>
     <div class="close-vision">Today, a storm in London. Tomorrow — an IT outage, a security incident, a supply-chain shock. Same agents. Same governance. Every office, every region.</div>
     <button class="screen-btn" id="closeScreenBtn">Run another scenario</button>
   </div>
@@ -551,6 +593,25 @@
 
   let activeCityKey="london", trans=null, autoTimer=null, autoTick=null, wfFired=false;
   let statusPollInterval=null, liveData=null;
+  // ── cinematic state ──
+  let lastStepsSig="";            // only re-render the timeline (and re-type) when steps actually change
+  const typedThoughts=new Set();  // AI thoughts already fully typed out
+  let activeTypers=[];            // pending typewriter timeouts (cleared on re-render)
+
+  // animate a number counting up to its target (the "hero-timer" feel)
+  function animateCount(el, to, decimals, suffix){
+    const from = parseFloat(el.dataset.val||"0")||0;
+    if(from===to){ el.textContent=(decimals?to.toFixed(decimals):to)+(suffix||""); return; }
+    el.dataset.val=to;
+    const dur=900, t0=performance.now();
+    function step(now){
+      const p=Math.min((now-t0)/dur,1), e=1-Math.pow(1-p,3), v=from+(to-from)*e;
+      el.textContent=(decimals?v.toFixed(decimals):Math.round(v))+(suffix||"");
+      if(p<1) requestAnimationFrame(step);
+      else el.textContent=(decimals?to.toFixed(decimals):to)+(suffix||"");
+    }
+    requestAnimationFrame(step);
+  }
 
   // ── HELPERS ──
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
@@ -595,7 +656,10 @@
       ? normalizeSteps(d.agent_execution)
       : deriveSteps(d, prioritized, excluded);
 
-    if(modalOverlay.classList.contains("show")) renderAgentTimeline(steps);
+    if(modalOverlay.classList.contains("show")){
+      const sig = steps.map(s=>s.type+"|"+s.name+"|"+s.status+"|"+((s.thought||"").length)+"|"+(s.output==null?"":String(s.output).length)).join("§");
+      if(sig!==lastStepsSig){ lastStepsSig=sig; renderAgentTimeline(steps); }
+    }
     renderMiniSteps(steps);
 
     // Outcome KPI strip (live)
@@ -737,20 +801,43 @@
   }
   function renderKpis(prioritized, excluded, steps){
     const k = computeKpis(prioritized, excluded, steps);
-    document.getElementById("kpiAffected").textContent = k.affected;
-    document.getElementById("kpiOnsite").textContent   = k.onsite;
-    document.getElementById("kpiRealloc").textContent  = k.realloc;
-    document.getElementById("kpiSpeed").textContent    = k.speed;
-    // keep the closing screen primed with the same figures
+    animateCount(document.getElementById("kpiAffected"), k.affected, 0, "");
+    animateCount(document.getElementById("kpiOnsite"),   k.onsite,   0, "");
+    animateCount(document.getElementById("kpiRealloc"),  k.realloc,  0, "");
+    // hero-timer: roll the "Resolved in" figure up to its real value, then pulse
+    const spEl=document.getElementById("kpiSpeed");
+    if(k.speed==="—"){ spEl.textContent="—"; spEl.dataset.val="0"; }
+    else {
+      const target=parseFloat(k.speed);
+      if(parseFloat(spEl.dataset.val||"0")!==target){
+        animateCount(spEl, target, 1, "s");
+        const tile=spEl.closest(".kpi");
+        if(tile){ tile.classList.remove("flash"); void tile.offsetWidth; tile.classList.add("flash"); }
+      }
+    }
+    // closing screen mirrors the same figures + contrast beat
     document.getElementById("cAffected").textContent = k.affected;
     document.getElementById("cOnsite").textContent   = k.onsite;
     document.getElementById("cRealloc").textContent  = k.realloc;
     document.getElementById("cSpeed").textContent    = k.speed;
+    document.getElementById("ccAgentic").textContent = k.speed==="—" ? "seconds, autonomously" : k.speed+" autonomously";
     outcomeWrap.classList.toggle("show", k.affected>0);
   }
 
+  function typeInto(span, caret, text){
+    let i=0; const speed=14;
+    function tick(){
+      span.textContent=text.slice(0,i);
+      if(i++<text.length){ activeTypers.push(setTimeout(tick,speed)); }
+      else { if(caret&&caret.parentNode) caret.remove(); typedThoughts.add(text); }
+    }
+    tick();
+  }
+
   function renderAgentTimeline(steps){
+    activeTypers.forEach(clearTimeout); activeTypers=[];
     timeline.innerHTML="";
+    const toType=[]; let tid=0;
     steps.forEach(s=>{
       const st=s.status||"done";
       const ico  = st==="done"?"✅":st==="running"?"◌":"•";
@@ -763,7 +850,15 @@
 
       let lines="";
       if(s.latency_ms!=null) lines+='<div class="ax-line"><span class="ax-k">Latency</span><span class="ax-v">'+esc(s.latency_ms)+'ms</span></div>';
-      if(s.thought)          lines+='<div class="ax-thought">"'+esc(s.thought)+'"</div>';
+      if(s.thought){
+        if(typedThoughts.has(s.thought)){
+          lines+='<div class="ax-thought">“'+esc(s.thought)+'”</div>';
+        } else {
+          const id="tw"+(tid++);
+          lines+='<div class="ax-thought">“<span data-tw="'+id+'"></span><span class="ax-caret" data-twc="'+id+'">▋</span>”</div>';
+          toType.push({id, text:s.thought});
+        }
+      }
       const outPretty = prettyOutput(s.name, s.output);
       if(outPretty!=null && outPretty!=="") lines+='<div class="ax-line"><span class="ax-k">Output</span><span class="ax-v">'+esc(outPretty)+'</span></div>';
       if(s.status_text)      lines+='<div class="ax-line"><span class="ax-k">Status</span><span class="ax-v">'+esc(s.status_text)+'</span></div>';
@@ -772,6 +867,12 @@
       row.className="ax-step";
       row.innerHTML='<div class="ax-ico '+icoCls+'">'+ico+'</div><div><div class="ax-name">'+kindHtml+'</div>'+lines+'</div>';
       timeline.appendChild(row);
+    });
+    // kick off typing for any new thoughts
+    toType.forEach(t=>{
+      const span=timeline.querySelector('[data-tw="'+t.id+'"]');
+      const caret=timeline.querySelector('[data-twc="'+t.id+'"]');
+      if(span) typeInto(span, caret, t.text);
     });
     document.getElementById("axMeta").textContent="● Live · agent execution · updated "+timeStr();
     resolveWrap.style.display="block";
@@ -1008,10 +1109,25 @@
   const closeScreenBtn=document.getElementById("closeScreenBtn");
   let titleUp=true;
 
+  function fireFlash(){
+    const f=document.getElementById("flash");
+    f.classList.remove("fire"); void f.offsetWidth; f.classList.add("fire");
+  }
   function dismissTitle(){
     if(!titleUp)return;
     titleUp=false;
     titleScreen.classList.remove("show");
+    // Act II: the storm breaks — alert tears in with a lightning flash
+    const city=CITIES[activeCityKey];
+    if(city.disruption){
+      setTimeout(()=>{
+        fireFlash();
+        alertBanner.classList.remove("show");
+        void alertBanner.offsetWidth;
+        alertBanner.classList.add("tear","show");
+        setTimeout(()=>alertBanner.classList.remove("tear"),700);
+      }, 360);
+    }
   }
   function showCloseScreen(){
     closeScreen.classList.add("show");
@@ -1030,6 +1146,7 @@
   function openModal(){
     if(wfFired)return;
     wfFired=true;
+    lastStepsSig=""; typedThoughts.clear(); activeTypers.forEach(clearTimeout); activeTypers=[];
     autoBadge.classList.remove("show");
     modalOverlay.style.display="flex";
     requestAnimationFrame(()=>requestAnimationFrame(()=>modalOverlay.classList.add("show")));
@@ -1111,6 +1228,7 @@
     buildParticles(CITIES[activeCityKey].weather);
     tickClock(); setInterval(tickClock,1000);
     loop();
+    setTimeout(()=>titleScreen.classList.add("lit"), 1500);  // beat of silence, then the title rises out of the storm
     setTimeout(()=>scheduleAutoTrigger(),3600);
   }
 
