@@ -292,14 +292,24 @@
     .resolve-btn:hover { background:var(--bg-tertiary); border-color:rgba(255,255,255,0.2); color:var(--text-primary); }
 
     /* ── KPI / OUTCOME STRIP (centre) ── */
-    .kpi-strip {
+    .outcome-wrap {
       position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) translateY(8px);
       z-index:6; width:min(620px,92%);
-      display:grid; grid-template-columns:repeat(4,1fr); gap:10px;
+      display:flex; flex-direction:column; align-items:center; gap:16px;
       opacity:0; pointer-events:none;
       transition:opacity 520ms ease, transform 520ms cubic-bezier(0.22,1.2,0.4,1);
     }
-    .kpi-strip.show { opacity:1; transform:translate(-50%,-50%) translateY(0); }
+    .outcome-wrap.show { opacity:1; transform:translate(-50%,-50%) translateY(0); pointer-events:auto; }
+    .kpi-strip {
+      width:100%; display:grid; grid-template-columns:repeat(4,1fr); gap:10px;
+    }
+    .main-resolve-btn {
+      padding:11px 24px; border-radius:var(--radius-sm);
+      border:1px solid var(--green-bdr); background:var(--green-bg); color:var(--green);
+      font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer;
+      transition:160ms;
+    }
+    .main-resolve-btn:hover { background:rgba(0,201,81,0.16); border-color:rgba(0,201,81,0.4); }
     .kpi {
       background:rgba(17,22,28,0.86); border:1px solid var(--border);
       border-radius:var(--radius-md); padding:14px 12px; text-align:center;
@@ -402,11 +412,14 @@
         <span class="auto-dot"></span>
         <span id="autoText">Workplace reallocation initiating…</span>
       </div>
-      <div class="kpi-strip" id="kpiStrip">
-        <div class="kpi"><div class="kpi-num affected" id="kpiAffected">0</div><div class="kpi-label">Staff affected</div></div>
-        <div class="kpi"><div class="kpi-num onsite"   id="kpiOnsite">0</div><div class="kpi-label">Kept on-site</div></div>
-        <div class="kpi"><div class="kpi-num realloc"  id="kpiRealloc">0</div><div class="kpi-label">Reallocated</div></div>
-        <div class="kpi"><div class="kpi-num speed"    id="kpiSpeed">—</div><div class="kpi-label">Resolved in</div></div>
+      <div class="outcome-wrap" id="outcomeWrap">
+        <div class="kpi-strip" id="kpiStrip">
+          <div class="kpi"><div class="kpi-num affected" id="kpiAffected">0</div><div class="kpi-label">Staff affected</div></div>
+          <div class="kpi"><div class="kpi-num onsite"   id="kpiOnsite">0</div><div class="kpi-label">Kept on-site</div></div>
+          <div class="kpi"><div class="kpi-num realloc"  id="kpiRealloc">0</div><div class="kpi-label">Reallocated</div></div>
+          <div class="kpi"><div class="kpi-num speed"    id="kpiSpeed">—</div><div class="kpi-label">Resolved in</div></div>
+        </div>
+        <button class="main-resolve-btn" id="mainResolveBtn">Mark Event Resolved — Restore All Assignments</button>
       </div>
       <div class="weather-ctx">
         <div class="wc-location"  id="wcCity"></div>
@@ -733,7 +746,7 @@
     document.getElementById("cOnsite").textContent   = k.onsite;
     document.getElementById("cRealloc").textContent  = k.realloc;
     document.getElementById("cSpeed").textContent    = k.speed;
-    kpiStrip.classList.toggle("show", k.affected>0);
+    outcomeWrap.classList.toggle("show", k.affected>0);
   }
 
   function renderAgentTimeline(steps){
@@ -958,6 +971,7 @@
     if(dis) showDecisionPlaceholder("⚠ Disruption detected. Trigger reallocation to run the AI agent.");
     else    showDecisionPlaceholder("✓ No disruption detected. Agent on standby.");
     kpiStrip.classList.remove("show");
+    outcomeWrap.classList.remove("show");
     resetAccessPanel();
   }
 
@@ -984,6 +998,9 @@
   const resolveWrap=document.getElementById("resolveWrap");
   const timeline=document.getElementById("timeline");
   const kpiStrip=document.getElementById("kpiStrip");
+  const outcomeWrap=document.getElementById("outcomeWrap");
+  const mainResolveBtn=document.getElementById("mainResolveBtn");
+  mainResolveBtn.addEventListener("click",resolveEvent);
 
   // ── TITLE / CLOSING SCREENS ──
   const titleScreen=document.getElementById("titleScreen");
@@ -1094,7 +1111,6 @@
     buildParticles(CITIES[activeCityKey].weather);
     tickClock(); setInterval(tickClock,1000);
     loop();
-    setTimeout(dismissTitle, 3200);          // title screen fades on its own
     setTimeout(()=>scheduleAutoTrigger(),3600);
   }
 
