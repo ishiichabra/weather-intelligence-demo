@@ -291,6 +291,52 @@
     .resolve-btn { width:100%; padding:11px 16px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-elevated); font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-secondary); cursor:pointer; transition:180ms; }
     .resolve-btn:hover { background:var(--bg-tertiary); border-color:rgba(255,255,255,0.2); color:var(--text-primary); }
 
+    /* ── KPI / OUTCOME STRIP (centre) ── */
+    .kpi-strip {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) translateY(8px);
+      z-index:6; width:min(620px,92%);
+      display:grid; grid-template-columns:repeat(4,1fr); gap:10px;
+      opacity:0; pointer-events:none;
+      transition:opacity 520ms ease, transform 520ms cubic-bezier(0.22,1.2,0.4,1);
+    }
+    .kpi-strip.show { opacity:1; transform:translate(-50%,-50%) translateY(0); }
+    .kpi {
+      background:rgba(17,22,28,0.86); border:1px solid var(--border);
+      border-radius:var(--radius-md); padding:14px 12px; text-align:center;
+      backdrop-filter:blur(10px);
+    }
+    .kpi-num { font-size:30px; font-weight:700; letter-spacing:-0.03em; line-height:1; font-variant-numeric:tabular-nums; }
+    .kpi-num.affected { color:var(--text-primary); }
+    .kpi-num.onsite   { color:var(--blue); }
+    .kpi-num.realloc  { color:var(--green); }
+    .kpi-num.speed    { color:var(--amber); }
+    .kpi-label { margin-top:6px; font-size:9px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); line-height:1.3; }
+
+    /* ── TITLE + CLOSING SCREENS ── */
+    .screen {
+      position:fixed; inset:0; z-index:60;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      text-align:center; padding:40px;
+      background:radial-gradient(ellipse at 50% 35%, rgba(20,32,44,0.55) 0%, rgba(7,10,14,0.92) 70%), var(--bg-primary);
+      backdrop-filter:blur(6px);
+      opacity:0; pointer-events:none; transition:opacity 600ms ease;
+    }
+    .screen.show { opacity:1; pointer-events:auto; }
+    .screen-eyebrow { font-size:11px; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; color:var(--green); margin-bottom:18px; }
+    .screen-title { font-size:clamp(34px,6vw,60px); font-weight:700; letter-spacing:-0.03em; line-height:1.05; max-width:14ch; }
+    .screen-title span { color:var(--green); }
+    .screen-tag { margin-top:20px; font-size:clamp(15px,2vw,19px); font-weight:300; color:var(--text-secondary); max-width:30ch; line-height:1.5; }
+    .screen-hint { position:absolute; bottom:46px; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); animation:breathe 2.4s infinite; }
+    .screen-brand { position:absolute; top:40px; font-size:20px; font-weight:700; letter-spacing:-0.03em; color:#fff; }
+    .screen-brand span { color:var(--green); }
+
+    .close-check { width:62px; height:62px; border-radius:50%; background:var(--green-bg); border:1px solid var(--green-bdr); display:flex; align-items:center; justify-content:center; font-size:30px; color:var(--green); margin-bottom:22px; }
+    .close-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:30px; width:min(620px,92%); }
+    .close-kpis .kpi { background:rgba(17,22,28,0.6); }
+    .close-vision { margin-top:30px; font-size:13px; font-weight:300; color:var(--text-muted); max-width:42ch; line-height:1.6; }
+    .screen-btn { margin-top:30px; padding:12px 26px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-elevated); color:var(--text-secondary); font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; transition:160ms; }
+    .screen-btn:hover { background:var(--bg-tertiary); border-color:rgba(255,255,255,0.2); color:var(--text-primary); }
+
     /* ── UTILITIES ── */
     .fade-layer { transition:opacity 700ms ease; }
     .fade-layer.fading { opacity:0.06; }
@@ -356,6 +402,12 @@
         <span class="auto-dot"></span>
         <span id="autoText">Workplace reallocation initiating…</span>
       </div>
+      <div class="kpi-strip" id="kpiStrip">
+        <div class="kpi"><div class="kpi-num affected" id="kpiAffected">0</div><div class="kpi-label">Staff affected</div></div>
+        <div class="kpi"><div class="kpi-num onsite"   id="kpiOnsite">0</div><div class="kpi-label">Kept on-site</div></div>
+        <div class="kpi"><div class="kpi-num realloc"  id="kpiRealloc">0</div><div class="kpi-label">Reallocated</div></div>
+        <div class="kpi"><div class="kpi-num speed"    id="kpiSpeed">—</div><div class="kpi-label">Resolved in</div></div>
+      </div>
       <div class="weather-ctx">
         <div class="wc-location"  id="wcCity"></div>
         <div class="wc-temp"      id="wcTemp"></div>
@@ -387,6 +439,30 @@
       </div>
     </section>
   </main>
+
+  <!-- TITLE SCREEN -->
+  <div class="screen show" id="titleScreen">
+    <div class="screen-brand">service<span>now</span></div>
+    <div class="screen-eyebrow">Agentic AI · Live Demonstration</div>
+    <div class="screen-title">Workplace <span>Decision Intelligence</span></div>
+    <div class="screen-tag">Sense the disruption. Decide who's affected. Act — in seconds.</div>
+    <div class="screen-hint">Press space or click to begin</div>
+  </div>
+
+  <!-- CLOSING SCREEN -->
+  <div class="screen" id="closeScreen">
+    <div class="screen-brand">service<span>now</span></div>
+    <div class="close-check">✓</div>
+    <div class="screen-title" style="font-size:clamp(28px,5vw,46px)">Event resolved <span>autonomously</span></div>
+    <div class="close-kpis">
+      <div class="kpi"><div class="kpi-num affected" id="cAffected">0</div><div class="kpi-label">Staff affected</div></div>
+      <div class="kpi"><div class="kpi-num onsite"   id="cOnsite">0</div><div class="kpi-label">Kept on-site</div></div>
+      <div class="kpi"><div class="kpi-num realloc"  id="cRealloc">0</div><div class="kpi-label">Reallocated</div></div>
+      <div class="kpi"><div class="kpi-num speed"    id="cSpeed">—</div><div class="kpi-label">Resolved in</div></div>
+    </div>
+    <div class="close-vision">Today, a storm in London. Tomorrow — an IT outage, a security incident, a supply-chain shock. Same agents. Same governance. Every office, every region.</div>
+    <button class="screen-btn" id="closeScreenBtn">Run another scenario</button>
+  </div>
 
   <!-- WORKFLOW MODAL -->
   <div class="modal-overlay" id="modalOverlay">
@@ -509,6 +585,9 @@
     if(modalOverlay.classList.contains("show")) renderAgentTimeline(steps);
     renderMiniSteps(steps);
 
+    // Outcome KPI strip (live)
+    renderKpis(prioritized, excluded, steps);
+
     // Physical access (live)
     renderAccessFromData(d);
   }
@@ -609,16 +688,52 @@
     if(d.staffing_justification){
       steps.push({type:"genai", name:"AIA ReAct Engine", status:"done", thought:d.staffing_justification});
     }
-    // The Update step's job is to WRITE the prioritised/excluded staff to the
-    // record. If those are present the write succeeded — mark it done regardless
-    // of the State field (State is a separate signal the agent may or may not set).
-    var staffWritten = (prioritized.length + excluded.length) > 0;
+    const resolved = d.state && String(d.state).toLowerCase()!=="open";
     steps.push({
       type:"tool", name:"Update Disruption Record",
-      status: staffWritten ? "done" : "running",
-      status_text: staffWritten ? "Record updated" : (d.state || "Pending…")
+      status: resolved?"done":"running",
+      status_text: d.state || "Pending…"
     });
     return steps;
+  }
+
+  // ── OUTPUT PRETTIFIER: hide raw sys_ids / {"message":"<hex>"} behind human labels ──
+  function isSysId(s){ return /^[0-9a-f]{32}$/i.test(String(s||"").trim()); }
+  function prettyOutput(name, raw){
+    if(raw==null) return null;
+    let s = (typeof raw==="object") ? JSON.stringify(raw) : String(raw);
+    s = s.trim();
+    // {"message":"..."} or {"result":"..."} wrappers
+    const m = s.match(/^\{\s*"(?:message|result|sys_id)"\s*:\s*"([^"]*)"\s*\}$/i);
+    if(m){ s = m[1].trim(); }
+    if(isSysId(s)){
+      return /disrupt|record|sysid|retrieve|locate/i.test(name||"") ? "Disruption record located" : "Record located";
+    }
+    // strip a bare embedded 32-hex id if the rest is short
+    if(/^[0-9a-f]{32}$/i.test(s.replace(/[^0-9a-f]/gi,""))&&s.length<=40) return "Record located";
+    return s;
+  }
+
+  // ── KPI / OUTCOME STRIP ──
+  function computeKpis(prioritized, excluded, steps){
+    const affected = prioritized.length + excluded.length;
+    let ms = 0;
+    (steps||[]).forEach(s=>{ if(typeof s.latency_ms==="number") ms += s.latency_ms; });
+    const speed = ms>0 ? (ms/1000).toFixed(1)+"s" : "—";
+    return { affected, onsite:prioritized.length, realloc:excluded.length, speed };
+  }
+  function renderKpis(prioritized, excluded, steps){
+    const k = computeKpis(prioritized, excluded, steps);
+    document.getElementById("kpiAffected").textContent = k.affected;
+    document.getElementById("kpiOnsite").textContent   = k.onsite;
+    document.getElementById("kpiRealloc").textContent  = k.realloc;
+    document.getElementById("kpiSpeed").textContent    = k.speed;
+    // keep the closing screen primed with the same figures
+    document.getElementById("cAffected").textContent = k.affected;
+    document.getElementById("cOnsite").textContent   = k.onsite;
+    document.getElementById("cRealloc").textContent  = k.realloc;
+    document.getElementById("cSpeed").textContent    = k.speed;
+    kpiStrip.classList.toggle("show", k.affected>0);
   }
 
   function renderAgentTimeline(steps){
@@ -636,7 +751,8 @@
       let lines="";
       if(s.latency_ms!=null) lines+='<div class="ax-line"><span class="ax-k">Latency</span><span class="ax-v">'+esc(s.latency_ms)+'ms</span></div>';
       if(s.thought)          lines+='<div class="ax-thought">"'+esc(s.thought)+'"</div>';
-      if(s.output!=null && s.output!=="") lines+='<div class="ax-line"><span class="ax-k">Output</span><span class="ax-v">'+esc(s.output)+'</span></div>';
+      const outPretty = prettyOutput(s.name, s.output);
+      if(outPretty!=null && outPretty!=="") lines+='<div class="ax-line"><span class="ax-k">Output</span><span class="ax-v">'+esc(outPretty)+'</span></div>';
       if(s.status_text)      lines+='<div class="ax-line"><span class="ax-k">Status</span><span class="ax-v">'+esc(s.status_text)+'</span></div>';
 
       const row=document.createElement("div");
@@ -669,17 +785,17 @@
     const ba = Array.isArray(d.badge_assignments)?d.badge_assignments:[];
     if(ba.length){
       const loc = ba[0].location||ba[0].office||ba[0].safe_office||d.office_affected||"alternative office";
+      const names = ba.map(a=>a.name||a.employee||a.user||"Staff");
+      const shown = names.slice(0,4);
+      const more  = names.length - shown.length;
       accessOrb.className="access-orb live";
-      accessStatusText.textContent=ba.length+" temporary badge"+(ba.length>1?"s":"")+" provisioned";
-      let rows = ba.slice(0,4).map(function(a){
-        const name=a.name||a.employee||a.user||"Staff";
-        return '<div class="scan-row"><span class="scan-key">'+esc(name)+'</span><span class="scan-val" style="color:var(--green)">Granted</span></div>';
-      }).join("");
-      if(ba.length>4) rows += '<div class="scan-row"><span class="scan-key">…and '+(ba.length-4)+' more</span><span class="scan-val"></span></div>';
-      scanRecord.innerHTML=
-        rows +
-        '<div class="access-decision">✅ Access granted · '+esc(loc)+'</div>'+
-        '<div class="access-reason">Temporary badge access to the alternative office, valid for the disruption</div>';
+      accessStatusText.textContent = ba.length+" temporary "+(ba.length===1?"badge":"badges")+" provisioned";
+      const nameRows = shown.map(n=>
+        '<div class="scan-row"><span class="scan-val">'+esc(n)+'</span><span class="scan-key">Granted</span></div>'
+      ).join("") + (more>0 ? '<div class="scan-row"><span class="scan-key">…and '+more+' more</span></div>' : "");
+      scanRecord.innerHTML =
+        nameRows +
+        '<div class="access-decision">✅ Access granted · '+esc(loc)+'</div>';
     } else {
       accessOrb.className="access-orb";
       accessStatusText.textContent="Awaiting badge provisioning";
@@ -841,6 +957,7 @@
 
     if(dis) showDecisionPlaceholder("⚠ Disruption detected. Trigger reallocation to run the AI agent.");
     else    showDecisionPlaceholder("✓ No disruption detected. Agent on standby.");
+    kpiStrip.classList.remove("show");
     resetAccessPanel();
   }
 
@@ -866,6 +983,32 @@
   const resolveBtn=document.getElementById("resolveBtn");
   const resolveWrap=document.getElementById("resolveWrap");
   const timeline=document.getElementById("timeline");
+  const kpiStrip=document.getElementById("kpiStrip");
+
+  // ── TITLE / CLOSING SCREENS ──
+  const titleScreen=document.getElementById("titleScreen");
+  const closeScreen=document.getElementById("closeScreen");
+  const closeScreenBtn=document.getElementById("closeScreenBtn");
+  let titleUp=true;
+
+  function dismissTitle(){
+    if(!titleUp)return;
+    titleUp=false;
+    titleScreen.classList.remove("show");
+  }
+  function showCloseScreen(){
+    closeScreen.classList.add("show");
+  }
+  function hideCloseScreen(){
+    closeScreen.classList.remove("show");
+  }
+  titleScreen.addEventListener("click",dismissTitle);
+  closeScreenBtn.addEventListener("click",()=>{
+    hideCloseScreen();
+    wfFired=false;
+    renderMain(CITIES[activeCityKey]);
+    setTimeout(()=>scheduleAutoTrigger(),600);
+  });
 
   function openModal(){
     if(wfFired)return;
@@ -900,9 +1043,8 @@
   }
 
   function resolveEvent(){
-    closeWorkflow(); wfFired=false;
-    miniSteps.innerHTML="";
-    renderMain(CITIES[activeCityKey]);
+    closeWorkflow();
+    showCloseScreen();   // the KPI figures were primed live by renderKpis()
   }
 
   // ── AUTO-TRIGGER PROMPT ──
@@ -952,7 +1094,8 @@
     buildParticles(CITIES[activeCityKey].weather);
     tickClock(); setInterval(tickClock,1000);
     loop();
-    setTimeout(()=>scheduleAutoTrigger(),3000);
+    setTimeout(dismissTitle, 3200);          // title screen fades on its own
+    setTimeout(()=>scheduleAutoTrigger(),3600);
   }
 
   window.addEventListener("resize",()=>{
@@ -966,9 +1109,14 @@
   resolveBtn.addEventListener("click",resolveEvent);
   modalOverlay.addEventListener("click",e=>{if(e.target===modalOverlay)closeWorkflow();});
   document.addEventListener("keydown",e=>{
-    if(e.key==="Escape") closeWorkflow();
+    if(e.key==="Escape"){
+      if(closeScreen.classList.contains("show")){ hideCloseScreen(); return; }
+      closeWorkflow(); return;
+    }
     if(e.key===" "||e.key==="Enter"){
       e.preventDefault();
+      if(titleUp){ dismissTitle(); return; }                 // space first dismisses the title screen
+      if(closeScreen.classList.contains("show")) return;
       const city=CITIES[activeCityKey];
       if(city.disruption&&!wfFired) openModal();
     }
