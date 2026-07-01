@@ -383,6 +383,17 @@
     .alert-banner.tear { animation:tearIn 640ms cubic-bezier(0.18,1.3,0.4,1); }
     @keyframes tearIn { 0%{ transform:translateX(-50%) translateY(-34px) scale(0.95); opacity:0; } 100%{ transform:translateX(-50%) translateY(0) scale(1); opacity:1; } }
 
+    /* live "agent working" tail step */
+    .ax-working { animation:workPulse 1.8s ease-in-out infinite; }
+    @keyframes workPulse { 0%,100%{opacity:0.7;} 50%{opacity:1;} }
+
+    /* agent-orchestration grouping in the timeline */
+    .ax-orch { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--text-muted); letter-spacing:0.04em; margin:0 0 14px; opacity:0.85; }
+    .ax-agent-head { display:flex; align-items:center; gap:8px; margin:16px 0 10px; padding-top:13px; border-top:1px solid rgba(255,255,255,0.09); font-size:11px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-secondary); }
+    .ax-agent-head.first { border-top:none; padding-top:0; margin-top:2px; }
+    .ax-agent-badge { font-size:14px; }
+    .ax-step { margin-left:6px; }
+
     /* ── UTILITIES ── */
     .fade-layer { transition:opacity 700ms ease; }
     .fade-layer.fading { opacity:0.06; }
@@ -597,6 +608,26 @@
   let lastStepsSig="";            // only re-render the timeline (and re-type) when steps actually change
   const typedThoughts=new Set();  // AI thoughts already fully typed out
   let activeTypers=[];            // pending typewriter timeouts (cleared on re-render)
+  // ── live "agent working" ticker (fills the gap while a step is still reasoning) ──
+  let workTimerInt=null, workStartedAt=0, lastRealSig="";
+  const WORK_MSGS=[
+    "Reasoning over the next action…",
+    "Evaluating roles, seniority & remote-eligibility…",
+    "Consulting staff records…",
+    "Determining who must be on-site…",
+    "Preparing the next tool call…"
+  ];
+  function startWorkTicker(){
+    if(workTimerInt) return;
+    workTimerInt=setInterval(()=>{
+      const t=document.getElementById("workTimer"), m=document.getElementById("workMsg");
+      if(!t||!m) return;                                   // working row not on screen right now
+      const secs=Math.max(0,Math.floor((Date.now()-workStartedAt)/1000));
+      t.textContent=secs+"s";
+      m.textContent=WORK_MSGS[Math.floor(secs/3)%WORK_MSGS.length];
+    },1000);
+  }
+  function stopWorkTicker(){ if(workTimerInt){ clearInterval(workTimerInt); workTimerInt=null; } }
 
   // animate a number counting up to its target (the "hero-timer" feel)
   function animateCount(el, to, decimals, suffix){
@@ -652,13 +683,29 @@
     updateDecisionCards(prioritized, excluded, d.staffing_justification);
 
     // Agent execution timeline — use the real feed if present, otherwise derive from the record
-    const steps = (Array.isArray(d.agent_execution) && d.agent_execution.length)
+    const realSteps = (Array.isArray(d.agent_execution) && d.agent_execution.length)
       ? normalizeSteps(d.agent_execution)
       : deriveSteps(d, prioritized, excluded);
 
-    if(modalOverlay.classList.contains("show")){
-      const sig = steps.map(s=>s.type+"|"+s.name+"|"+s.status+"|"+((s.thought||"").length)+"|"+(s.output==null?"":String(s.output).length)).join("§");
+    // Is the run still in progress? The real feed only emits a step once it's DONE, so during a
+    // long reasoning step nothing new appears. Show a pulsing "working" tail to fill that gap —
+    // but only when nothing is already flagged running (the fallback path shows its own).
+    const badges = Array.isArray(d.badge_assignments)?d.badge_assignments:[];
+    const complete = badges.length>0 && total>0;
+    const anyRunning = realSteps.some(s=>s.status==="running");
+    const modalOpen = modalOverlay.classList.contains("show");
+    const showWorking = modalOpen && !complete && !anyRunning && realSteps.length>0;
+
+    const steps = showWorking
+      ? realSteps.concat([{type:"genai", name:"AIA ReAct Engine", status:"running", _working:true}])
+      : realSteps;
+
+    if(modalOpen){
+      const realSig = realSteps.map(s=>s.type+"|"+s.name+"|"+s.status+"|"+((s.thought||"").length)+"|"+(s.output==null?"":String(s.output).length)).join("§");
+      if(realSig!==lastRealSig){ lastRealSig=realSig; workStartedAt=Date.now(); }  // new step arrived → reset elapsed
+      const sig = realSig + "|w"+(showWorking?1:0);
       if(sig!==lastStepsSig){ lastStepsSig=sig; renderAgentTimeline(steps); }
+      if(showWorking) startWorkTicker(); else stopWorkTicker();
     }
     renderMiniSteps(steps);
 
@@ -755,20 +802,27 @@
     if(d.disruption_number){
       steps.push({type:"tool", name:"Retrieve Disruption Record Sysid", status:"done", output:d.disruption_number});
     }
-    if(prioritized.length || excluded.length){
+    const classified = prioritized.length || excluded.length;
+    if(classified){
       const sample = prioritized.slice(0,2).map(p=>(p.title||"Staff")+" ("+(p.name||"—")+")").join(", ");
       steps.push({
         type:"tool", name:"Identify Priority and Non-Priority Staff", status:"done",
         output: prioritized.length+" prioritised, "+excluded.length+" excluded"+(sample?" — "+sample+"…":"")
       });
-    }
-    if(d.staffing_justification){
-      steps.push({type:"genai", name:"AIA ReAct Engine", status:"done", thought:d.staffing_justification});
+      if(d.staffing_justification){
+        steps.push({type:"genai", name:"AIA ReAct Engine", status:"done", thought:d.staffing_justification});
+      }
+    } else if(d.disruption_number){
+      // Run in progress — the classifier is still working. Show it as active, not stalled.
+      steps.push({type:"genai", name:"AIA ReAct Engine", status:"running",
+        status_text:"Reasoning over roles, seniority & remote-eligibility…"});
+      steps.push({type:"tool", name:"Identify Priority and Non-Priority Staff", status:"running",
+        status_text:"Classifying staff…"});
     }
     const resolved = d.state && String(d.state).toLowerCase()!=="open";
     steps.push({
       type:"tool", name:"Update Disruption Record",
-      status: resolved?"done":"running",
+      status: resolved?"done":(classified?"running":"pending"),
       status_text: d.state || "Pending…"
     });
     return steps;
@@ -838,7 +892,46 @@
     activeTypers.forEach(clearTimeout); activeTypers=[];
     timeline.innerHTML="";
     const toType=[]; let tid=0;
+
+    // ── infer which agent each step belongs to (honours an explicit agent field if the feed adds one) ──
+    const inferAgent=(nm)=>{ const n=(nm||"").toLowerCase();
+      if(/excluded staff|badge|travel|reallocat|alternative/.test(n)) return "Arrange Travel Agent";
+      if(/disruption record|priorit|non-priority|classif/.test(n))    return "Staff Classifier Agent";
+      return null; };
+    const agentIcon=(a)=>/arrange|travel/i.test(a)?"🚪":/orchestr/i.test(a)?"🧠":/classif|staff/i.test(a)?"👥":"🤖";
+    const explicitAgent=(s)=> s.agent||s.agent_name||s.parent || ((s.type!=="genai"&&s.type!=="status") ? inferAgent(s.name) : null);
+    let firstAgent=null;
+    for(const s of steps){ const e=explicitAgent(s); if(e){ firstAgent=e; break; } }
+    let cur=firstAgent;
+    steps.forEach(s=>{ const e=explicitAgent(s); if(e) cur=e; s._agent=cur||"Agent"; });
+    const distinct=[...new Set(steps.map(s=>s._agent))];
+    if(distinct.length>1){
+      const orch=document.createElement("div");
+      orch.className="ax-orch";
+      orch.innerHTML='<span>🧠</span> Orchestrator · delegating to specialist agents';
+      timeline.appendChild(orch);
+    }
+
+    let curHead=null, headCount=0;
     steps.forEach(s=>{
+      if(s._agent && s._agent!==curHead){
+        curHead=s._agent;
+        const h=document.createElement("div");
+        h.className="ax-agent-head"+(headCount++===0 && distinct.length<=1 ? " first" : "");
+        h.innerHTML='<span class="ax-agent-badge">'+agentIcon(curHead)+'</span>'+esc(curHead);
+        timeline.appendChild(h);
+      }
+      if(s._working){
+        const row=document.createElement("div");
+        row.className="ax-step ax-working";
+        row.innerHTML='<div class="ax-ico run">◌</div><div>'
+          +'<div class="ax-name"><span class="ax-genai">GenAI · AIA ReAct Engine</span></div>'
+          +'<div class="ax-line"><span class="ax-k">Working</span><span class="ax-v"><span id="workMsg">'+esc(WORK_MSGS[0])+'</span></span></div>'
+          +'<div class="ax-line"><span class="ax-k">Elapsed</span><span class="ax-v"><span id="workTimer">0s</span></span></div>'
+          +'</div>';
+        timeline.appendChild(row);
+        return;
+      }
       const st=s.status||"done";
       const ico  = st==="done"?"✅":st==="running"?"◌":"•";
       const icoCls = st==="running"?"run":st==="pending"?"pend":"";
@@ -1147,6 +1240,7 @@
     if(wfFired)return;
     wfFired=true;
     lastStepsSig=""; typedThoughts.clear(); activeTypers.forEach(clearTimeout); activeTypers=[];
+    lastRealSig=""; workStartedAt=Date.now(); stopWorkTicker();
     autoBadge.classList.remove("show");
     modalOverlay.style.display="flex";
     requestAnimationFrame(()=>requestAnimationFrame(()=>modalOverlay.classList.add("show")));
